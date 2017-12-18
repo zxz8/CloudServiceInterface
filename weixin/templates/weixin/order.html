@@ -1,0 +1,21 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=0">
+    <title>用户订单</title>
+    <link rel="stylesheet" href="/static/weui.min.1.1.2.css">
+</head>
+<body>
+    <div class="container" id="container">
+        <div class="weui-cells">
+		{% for customOrder in customOrderList %}
+            <a class="weui-cell weui-cell_access" href="/item/?openid={{openid}}&customOrderId={% for key,value in customOrder.items %}{%if key == 'customOrderId'%}{{value}}{%endif%}{%endfor%}&customId={% for key,value in customOrder.items %}{%if key == 'customId'%}{{value}}{%endif%}{%endfor%}&status={% for key,value in customOrder.items %}{%if key == 'result'%}{{value}}{%endif%}{%endfor%}&amount={% for key,value in customOrder.items %}{%if key == 'amount'%}{{value}}{%endif%}{%endfor%}&description={% for key,value in customOrder.items %}{%if key == 'description'%}{{value}}{%endif%}{%endfor%}" style="background-color:{% for key,value in customOrder.items %}{%if key == 'result' and value == '0' %}{{ 'red' }}{%endif%}{%endfor%}">
+                <div class="weui-cell__bd">{% for key,value in customOrder.items %}{%if key == 'createTime'%}{{value}}{%endif%}{%endfor%}</div>
+		<div class="weui-cell__ft">{% for key,value in customOrder.items %}{%if key == 'amount'%}<p>{{value}}￥</p>{%endif%}{%endfor%}
+                </div>
+            </a>
+		{% endfor%}
+        </div>
+    </div>
+</body>
+</html>

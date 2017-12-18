@@ -1,0 +1,229 @@
+# -*- coding: utf-8 -*-
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+import json  
+import MySQLdb
+import  time
+import uuid
+import sys
+@csrf_exempt
+def index(request):
+	reload(sys);
+	sys.setdefaultencoding('utf8');
+	conn = conn=MySQLdb.connect(host="localhost",user="root",passwd="123456",db="chinese",charset="utf8");
+	cursor = conn.cursor();
+	result = {'status':'failed'};
+
+	if request.method == 'POST':
+		#request.body.encode('utf-8').strip();
+		print request.body
+		req = json.loads(request.body,encoding="utf-8");
+		print json.dumps(req,ensure_ascii=False)
+：：:		if (req['action'] == 'steelyard_get'):
+			sql = "select Id, steelyardId, goodsId, goodsName, goodsNum, price, posX, posY, posZ, unitWeight, currWeight, status from chinese.steelyard"
+                        n = cursor.execute(sql);
+			#cur = conn.cursor(MySQLdb.cursors.DictCursor)
+			rows = cursor.fetchall()
+			result = {'result':[]}
+			for row in rows:
+				#row = cursor.fetchone()
+				#print row[0], row[1]
+				dic = {} 
+				dic['Id'] = row[0]
+				dic['steelyardId'] = row[1]
+				dic['goodsId'] = row[2]
+				dic['goodsName'] = row[3]
+				dic['goodsNum'] = row[4]
+				dic['price'] = row[5]
+				dic['posX'] = row[6]
+				dic['posY'] = row[7]
+				dic['posZ'] = row[8]
+				dic['unitWeight'] = row[9]
+				dic['currWeight'] = row[10]
+				dic['status'] = row[11]
+				result['result'].append(dic);
+			cursor.close();
+
+		if (req['action'] == 'shopping_chart'):
+
+			n = cursor.callproc('shoppingChartInsert',( req['scaleID'],  req['ProductName'], req['PersonID'], req['ProductID'],  req['unitWeight'], req['BeginWeight'], req['EndWeight'], req['weightDiff'], req['price']  )); 
+			rows = cursor.fetchall();
+			conn.commit()
+			result = {'status':'ok'}
+		#req = json.loads(request.body.encode('utf-8').strip(),encoding="utf-8");
+                
+                if (req['action'] == 'shopping_chart_deperate'):
+                        sql = "INSERT shoppingChart ( ScaleID, productName, PersonID, ProductID, unitWeight, BeginWeight, EndWeight, weightDiff, price) values( '" + req['scaleID'] + "',' " + req['ProductName'] + "','" + req['PersonID'] + "', '" + req['ProductID'] + "', '" + req['unitWeight'] + "', '" + req['BeginWeight'] + "' , '" + req['EndWeight'] + "', '" + req['weightDiff'] + "' , '" + req['price'] + "' )";
+                        print sql;
+                        #param = (uuid.uuid1(), req['PersonID'], req['BankID'], req['name']);
+                        n = cursor.execute(sql);
+
+                        result = {'status':'ok'}
+                if (req['action'] == 'scdb_report'):
+                        sql = "INSERT scdb (CustomerID, ScaleID, ProductID, unit, weight, price, ProductName) values( '" + req['PersonID'] + "',' " + req['scaleID'] + "','" + req['ProductID'] + "', '" + req['unit'] + "', '" + req['weight'] + "', '" + req['price'] + "' , '" + req['ProductName'] + "')";
+			print sql;
+                        #param = (uuid.uuid1(), req['PersonID'], req['BankID'], req['name']);
+                        n = cursor.execute(sql);
+
+                        result = {'status':'ok'}
+
+		if (req['action'] == 'cmdb_add'):
+		        sql = "INSERT cmdb (CustomerID, FaceID, BankID, name) values( '"+ str(uuid.uuid1()) +"', '"+ req['PersonID'] +"', '"+ req['BankID'] +"', '"+ req['name'] +"' )";
+			print sql
+			#param = (uuid.uuid1(), req['PersonID'], req['BankID'], req['name']);
+			n = cursor.execute(sql);
+			
+			result = {'status':'ok'}
+		if (req['action'] == 'cmdb_get'):
+                        sql = "select  CustomerID, name from cmdb where FaceID = '" + req['PersonID'] + "' ";
+                        print sql
+                        #param = (uuid.uuid1(), req['PersonID'], req['BankID'], req['name']);
+                        n = cursor.execute(sql);
+			rows = cursor.fetchall()
+                        result = {'result':[]}
+                        for row in rows:
+                                #row = cursor.fetchone()
+                                #print row[0], row[1]
+                                dic = {}
+                                dic['CustomerID'] = row[0]
+				dic['name'] = row[1]
+                                result['result'].append(dic);
+                        cursor.close();
+		if (req['action'] == 'cmdb_search_name'):
+			sql = "SELECT CustomerID FROM chinese.cmdb where name = '" + req['name'] + "';";
+			#param = ( 'zmy' );
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
+			n = cur.execute(sql)
+			rows = cur.fetchall()
+                        result = {'result':[]}
+                        for row in rows:
+                                #row = cursor.fetchone()
+                                #print row[0], row[1]
+                                dic = {}
+                                dic['PersonID'] = row['CustomerID']
+                                result['result'].append(dic);
+                        cur.close();
+
+		if (req['action'] == 'cmdb_search_personID'):
+                        sql = "SELECT name FROM chinese.cmdb where CustomerID = '" + req['personID'] + "';";
+                        #param = ( 'zmy' );
+                        cur = conn.cursor(MySQLdb.cursors.DictCursor)
+                        n = cur.execute(sql)
+                        rows = cur.fetchall()
+                        result = {'result':[]}
+                        for row in rows:
+                                #row = cursor.fetchone()
+                                #print row[0], row[1]
+                                dic = {}
+                                dic['name'] = row['name']
+                                result['result'].append(dic);
+                        cur.close();
+		#if (req['action'] == 'gmdb_add'):
+                #        sql = "INSERT gmdb (scaleID, ProductID, shieldID, layerNumber, zoonID, Price, weight, totalNumber) values( %s, %s, %s, %s, %s, %s, %s, %s)";
+                #        param = (req['scaleID'], req['ProductID'], req['shieldID'], req['layerNumber'], req['zoonID'], req['Price'], req['weight'], req['totalNumber']);
+                #        n = cursor.execute(sql, param);
+
+		if (req['action'] == 'scdb_add'):
+			sql = "INSERT scdb (FaceID, ProductID, unit) values( %s, %s, %s )";
+                        content = req['content'];
+			for element in content:
+				param = (req['PersonID'], element['ScaleID'], element['weight']);
+				sursor.callproc('InsertSCDB',(req['PersonID'], element['ScaleID'], element['weight']))
+				cursor.close();
+				cursor = conn.cursor();	
+                        #n = cursor.execute(sql, param);
+			result = {'status':'ok'}
+
+		if (req['action'] == 'csdb_add_in'):
+			sql = "INSERT csdb (FaceID, method, SessionID) values( %s, %s, %s)";
+			#param = (req['PersonID'], time.strftime('%Y-%m-%d %H:%M:%S'));
+			param = (req['PersonID'], 'in', uuid.uuid1());
+			n = cursor.execute(sql, param);
+			result = {'status':'ok'}
+
+		if (req['action'] == 'csdb_add_out'):
+                        sql = "INSERT csdb (FaceID, method, Time) values( %s,'out',%s)";
+                        param = (req['PersonID'], time.strftime('%Y-%m-%d %H:%M:%S'));
+                        n = cursor.execute(sql, param);
+			result = {'status':'ok'}
+
+                if (req['action'] == 'scdb_search'):
+			#sql = "select ProductID, unit, price, ProductName from scdb where FaceID = '" + req['PersonID'] + "'";
+			if (req['PersonID'] == 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'):
+				sql = "SELECT ProductID, unit, price, ProductName FROM chinese.scdb where FaceID = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF';"
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
+				n = cur.execute(sql);
+			else:
+				sql = "SELECT ProductID, unit, price, ProductName FROM chinese.scdb where FaceID = %s and time > (SELECT max(Time) FROM chinese.csdb where FaceID = %s);"
+				param = (req['PersonID'], req['PersonID']);
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
+				n = cur.execute(sql, param);
+	
+			rows = cur.fetchall()
+			result = {'result':[]}
+			for row in rows:
+				#row = cursor.fetchone()
+				#print row[0], row[1]
+				dic = {} 
+				dic['ProductID'] = row['ProductID']
+				dic['unit'] = row['unit']
+				dic['price'] = row['price']
+				dic['ProductName'] = row['ProductName']
+				result['result'].append(dic);
+			cur.close();
+		if (req['action'] == 'shppingChart_search'):
+			print "'" + req['PersonID'] + "'"; 
+			mPID = "'" + req['PersonID'] + "'";
+                        n = cursor.callproc('shoppingChartSearch',( req['PersonID'], '123'));
+			#print "count:" + n;
+                        rows = cursor.fetchall()
+                        result = {'result':[]}
+                        for row in rows:
+                                #row = cursor.fetchone()
+                                #print row[0], row[1]
+                                dic = {}
+                                dic['rowID'] = row[0]
+                                dic['price'] = row[1]
+				dic['productName'] = row[2]
+                                dic['PersonID'] = row[3]
+                                dic['PersonName'] = row[4]
+                                dic['ProductID'] = row[5]
+                                dic['unitWeight'] = row[6]
+                                dic['unit'] = row[7]
+                                dic['weight'] = row[8]
+                                result['result'].append(dic);
+			cursor.close();
+                if (req['action'] == 'shppingChart_search_deperate'):
+                        #sql = "select ProductID, unit, price, ProductName from scdb where FaceID = '" + req['PersonID'] + "'";
+                	sql = "SELECT @rownum := @rownum + 1 AS rowID, price,productName, PersonID,(SELECT @rownum := @rownum + 1 AS rowID, price,productName, PersonID,(select name from cmdb where faceID = '"+ req['PersonID'] +"') as PersonName, ProductID, unitWeight, round(-sum(weightDiff)/unitWeight) as unit, sum(weightDiff) as weight, min(timestamp), max(timestamp) FROM chinese.shoppingChart ,(SELECT @rownum := 0) r where PersonID = '" + req['PersonID'] + "' and timestamp > (SELECT max(Time) FROM chinese.csdb where FaceID = '" + req['PersonID'] + "')  group by unitWeight, price, productName, PersonID, ProductID, unitWeight having unit <> -0 or unit <> 0"
+                       #param = (req['PersonID'], req['PersonID']);
+			print sql;
+                	cur = conn.cursor(MySQLdb.cursors.DictCursor)
+                       #n = cur.execute(sql, param);
+			n = cur.execute(sql);
+			rows = cur.fetchall()
+			result = {'result':[]}
+			for row in rows:
+                                #row = cursor.fetchone()
+                                #print row[0], row[1]
+				dic = {}
+				dic['rowID'] = row['rowID']
+                                dic['productName'] = row['productName']
+                                dic['PersonID'] = row['PersonID']
+				dic['PersonName'] = row['PersonName']
+                                dic['ProductID'] = row['ProductID']
+                                dic['unitWeight'] = row['unitWeight']
+				dic['unit'] = row['unit']
+				dic['weight'] = row['weight']
+				dic['price'] = row['price']
+                                result['result'].append(dic);
+                        cur.close();
+		cursor.close();
+		conn.commit()
+		conn.close()
+		return HttpResponse(json.dumps(result,ensure_ascii=False));
+		#return HttpResponse(json.dumps(request.body));
+
+	if request.method == 'GET':
+		return HttpResponse("GET");

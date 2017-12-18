@@ -1,0 +1,78 @@
+<html>                                                                               
+	<head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1,user-    scalable=0">
+            <title>扫码进门</title>
+            <link rel="stylesheet" href="/static/weui.min.1.1.2.css">
+            <script type="text/javascript" src = "/static/jquery-1.11.1.js" ></script>
+            <script type="text/javascript" src = "/static/weixin.js" ></script>
+        </head>
+        <body>
+        <script type="text/javascript">
+                $(function(){
+                	function callScan(){
+                		wx.scanQRCode({
+						    needResult: 1, // 默认为0，扫描结果由微信处理，1则直接返回扫描结果，
+						    scanType: ["qrCode","barCode"], // 可以指定扫二维码还是一维码，默认二者都有
+						    success: function (res) {
+						  	  var result = res.resultStr; // 当needResult 为 1 时，扫码返回的结果
+						  	  $.ajax({
+						  	  	url:"http://www.haohuoshuo.com/toOpen/",
+						  	  	data:{
+						  	  		shopId:result,
+						  	  		customId:{{customId}}
+						  	  	},
+						  	  	method:"POST",
+						  	  	success: function(res){
+						  	  		res = JSON.parse(res);
+						  	  		if(res["success"] == "true")
+						  	  			alert("Congratulations! Gate has opened.Now you can choose the goods that you want.");
+						  	  		else{
+						  	  			alert("Error:" + res["message"]);
+						  	  		}
+						  	  	},
+						  	  	error: function(){
+
+						  	  	},
+						  	  })
+							},
+							error: function(){
+								alert("请重新扫码");
+								callScan();
+							}
+						});
+                	}
+                	function config(){
+                		wx.config({
+						    debug: false, 
+						    appId: jsdata.appId, // 必填，公众号的唯一标识
+						    timestamp: jsdata.timestamp, // 必填，生成签名的时间戳
+						    nonceStr: jsdata.nonceStr, // 必填，生成签名的随机串
+						    signature: jsdata.signature,// 必填，签名，见附录1
+						    jsApiList: ['scanQRCode'] // 必填，需要使用的JS接口列表，所有JS接口列表见附录2
+						});
+						wx.ready(function(){
+							callScan();
+						});
+                	}
+                	var jsdata;
+                	$.ajax({
+                		url:"http://www.haohuoshuo.com/getConfig/",
+                		method:"POST",
+                		data:{url:location.href},
+                		success:function(res){
+                			res = JSON.parse(res)
+                			jsdata = res;
+                			config();
+                		},
+                		error:function(){
+
+                		}
+                	});
+                	
+                	
+                })
+                
+        </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=0">
+        <title>Register</title>
+        <link rel="stylesheet" href="/static/weui.min.1.1.2.css"/>
+	<script type="text/javascript" src="/static/jquery-1.11.1.js" ></script>
+	<script type="text/javascript" src="/static/jquery-validate.js" ></script>
+	
+        <style type="text/css">
+            .todo__title___3xjQ7{margin:30px;font-weight:400;font-size:34px;color:#3cc51f;text-align:center}
+        </style>
+	<script type="text/javascript" >
+		function Formsubmit(){
+			$("#registerForm").submit();
+		}
+		$(function(){
+		$("button#verify_code").bind("click",function(){
+			tel = $("input#tel").val();
+			regex = /\(?([0-9]{3})\)?([ .-]?)([0-9]{3})\2([0-9]{4})/
+			if (tel == null || tel == ''|| !regex.test(tel))
+				return alert("telephone is illegal.");
+			$.ajax({url:"/resend/",type:"POST",data:{"action":"telcode_resend","tel":tel},
+			error:function(){
+				alert("手机号已被注册");
+			}});
+			$(this).addClass("weui-btn_plain-disabled");
+			var fun = repeat();
+			setTimeout(fun,"1000");
+		});
+		jQuery.validator.addMethod("regex",function(value, element, regexpr){
+			return regexpr.test(value);
+		},"请输入正确的号码");
+		$("#registerForm").validate({
+			rules:{
+				usernmae:{
+					required: true,
+					minlength: 3
+				},
+				tel:{
+					required: true,
+					regex: /\(?([0-9]{3})\)?([ .-]?)([0-9]{3})\2([0-9]{4})/
+				},
+				code:{
+					required: true,
+					minlength:4,
+					maxlength:4
+				},
+				password:{
+					required: true,
+					minlength: 6
+				},
+				repassword:{
+					equalTo: "#password"
+				}
+			},
+			messages:{
+				username: {
+					required: "请输入用户名",
+					minlength: "用户名至少3位"
+				},
+				tel: {
+					required: "请输入手机号",
+					regex: "请输入正确的手机号",
+				},
+				code: {
+					required: "请输入验证码",
+					minlength: "验证码为4位数",
+					maxlength: "验证码为4位数"
+				},
+				password: {
+					required: "请输入密码",
+					minlength: "密码至少6位"
+				},
+				repassword:{
+					equalTo: "请正确确认密码"
+				}
+			}
+		});
+		})
+		function repeat(){
+			var i = 29;
+			function rep(){
+				if(i<0){
+					i = 29;
+					$("button#verify_code").text("重新发送");
+					$("button#verify_code").removeClass("weui-btn_plain-disabled");
+				}
+				else{
+					$("button#verify_code").text(i-- + "秒后发送");
+					setTimeout(rep,"1000");
+				}
+			}
+			return rep;
+		}
+		
+		
+	</script>
+    </head>
+    <body>
+        <div id="container"><div class="register">
+        <h1 class="todo__title___3xjQ7">拿了就走</h1>
+	<form id="registerForm" action="/register/" method="POST">
+        <div class="weui-cells weui-cells_form">
+		<div class="weui-cell weui-cell_vcode">
+                <div class="weui-cell__hd">
+                    <label class="weui-label">手机号</label>
+                </div>
+                <div class="weui-cell__bd">
+                    <input type="tel" name="tel" id="tel" class="weui-input"  pattern="[\d]{8,11}" notmatchtips="请输入正确的手机号" placeholder="请输入手机号">
+                </div>
+                <div class="weui-cell__ft">
+                    <button id="verify_code" class="weui-btn weui-btn_plain-primary">获取验证码</button>
+                </div>
+            </div>
+		<div class="weui-cell">
+                <div class="weui-cell__hd">
+			<label class="weui-label">验证码</label></div>
+                <div class="weui-cell__bd">
+                    <input class="weui-input" name="code" type="number" placeholder="请输入验证码">
+                </div>
+            </div>
+            <div class="weui-cell" style="visibility:hidden">
+	            <div class="weui-cell__hd">
+	                <label for="" class="weui-label">用户名</label>
+	            </div>
+	            <div class="weui-cell__bd weui-cell_primary">
+	                <input type="text" name="username" class="weui-input required minlength:5" value="defaultName" placeholder="请输入用户名">
+	            </div>
+	        </div>
+            <input type="hidden" name="password" class="weui-input" id="password" value="123456" placeholder="请输入密码">
+            <input type="hidden" name="repassword" class="weui-input" value="123456" placeholder="请确认密码">
+        </div>
+	<input type="hidden" name="openid" value="{{ openid }}" />
+        <div class="weui-btn_area">
+            <a href="javascript:Formsubmit();" class="weui-btn weui-btn_primary js_btn">注册</a>
+        </div>
+    </form></div></div>
+    </body>
+</html>

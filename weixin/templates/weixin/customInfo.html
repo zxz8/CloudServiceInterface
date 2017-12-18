@@ -1,0 +1,50 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=0">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="keywords" content="用户信息">
+    <meta name="description" content="拿了就走用户信息">
+    <title>用户信息</title>
+    <link rel="stylesheet" href="/static/weui.min.1.1.2.css">
+	<script type="text/javascript" src = "/static/jquery-1.11.1.js" ></script>
+	<script type="text/javascript" >
+		$(function(){
+			$("a#qr").bind("click",function(){
+				location.href="/entry/?openid={{openid}}&customId=" + $("div#cid").text()+ "&username=" + $("div#name").text();
+			})
+		})
+	</script>
+</head>
+<body ontouchstart="">
+<div class="container" id="container">
+<div class="weui-cells">
+    <a id="qr"class="weui-cell weui-cell_access">
+        <div class="weui-cell__bd">
+            <p>二维码</p>
+        </div>
+        <div id="qr" class="weui-cell__ft">
+       	 <img class="weui_avatar" src="/static/test.png" alt="" width="50" height="50" style="vertical-align:middle;" />
+        </div>
+    </a>
+    <div class="weui-cell">
+        <div class="weui-cell__bd">
+            <p>用户名</p>
+        </div>
+        <div id="name" class="weui-cell__ft">{{ username }}</div>
+    </div>
+    <div class="weui-cell">
+        <div class="weui-cell__bd">
+            <p>手机号</p>
+        </div>
+        <div class="weui-cell__ft">{{ tel }}</div>
+    </div>
+    <div class="weui-cell">
+        <div class="weui-cell__bd">
+            <p>用户ID</p>
+        </div>
+        <div id="cid" class="weui-cell__ft">{{ customId}}</div>
+    </div>
+</div>
+</div></div>
+</html>
