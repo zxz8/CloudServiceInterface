@@ -2,6 +2,7 @@
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
+from weixin.views import sendOrderMessage
 import json  
 import MySQLdb
 import time
@@ -9,41 +10,42 @@ import uuid
 import datetime
 import urllib
 import zmq
+#import threading
 
 context = zmq.Context()
 socket = context.socket(zmq.PUSH)
-socket.connect('tcp://39.106.27.51:12300') #BJ_test
-#socket.connect('tcp://47.94.92.14:12300') #NJ_operative
+#socket.connect('tcp://39.106.27.51:12300') #BJ_test
+socket.connect('tcp://47.94.92.14:12300') #NJ_operative
 
 def http_get(url,reqJson):
-	reqJson = json.dumps(reqJson)
+	reqJson = json.dumps(reqJson)	# 对数据进行JSON格式化编码
 	url += reqJson
 	#print "HTTP GET: " + url
 	print '\033[1;31;40m' + "HTTP GET: " + url + '\033[0m'
-	response = urllib.urlopen(url)
-	return response.read()
+	response = urllib.urlopen(url)	# 发送请求
+	return response.read()		# 获取返回的信息
 
 def http_post(url,reqJson):
-	reqJson = json.dumps(reqJson)
+	reqJson = json.dumps(reqJson)	# 对数据进行JSON格式化编码
 	url += reqJson
 	#print "HTTP POST: " + url
 	print '\033[1;31;40m' + "HTTP POST: " + url + '\033[0m'
-	response = urllib.urlopen(url,"")
-	return response.read()
+	response = urllib.urlopen(url,"")	# 发送请求
+	return response.read()		# 获取返回的信息
 
-#CanCheck flag
+#盘点标志位
 g_dicCanCheck = {}
 def check_stock(vendorId,shopId):
-	print "vendorId: " + vendorId + " shopId: " + shopId + " check_stock start..."
+	print "商家ID：" + vendorId + " 门店ID：" + shopId + " 开始盘点..."
 	result = {'result':[], 'ErrMsg':''}
 	#time.sleep(10)
 	global g_dicCanCheck
-	key = vendorId + shopId #vendorId + shopId
+	key = vendorId + shopId #商家ID + 门店ID
 	reqJson = {}
 	reqJson['vendorId'] = vendorId
 	reqJson['storeCode'] = shopId
 	reqJson['skuInfo'] = ''
-	response = http_post("http://erp.haohuoshuo.com/api/exec?m=getSkustockByVenStoreSku&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+	response = http_post("http://erp.dianxiaohuo.net/api/exec?m=getSkustockByVenStoreSku&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 	#print "HTTP response: " + response
 	#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	response = json.loads(response)
@@ -52,20 +54,23 @@ def check_stock(vendorId,shopId):
 	if response['returnCode'] == 10:
 		conn = MySQLdb.connect(host="127.0.0.1",user="tangff",passwd="migrsoft*2017",db="1015shop",charset="utf8")
 		sql = "select * from steelyard where steelyardId like '" + shopId + "______' and vendorId = '" + vendorId + "';"
+		#if vendorId == "1853" and shopId == "BM01": #测试
+		#	sql = "select * from steelyard where steelyardId like '" + "001" + "______' and vendorId = '" + vendorId + "';"
+		#print sql
 		cur = conn.cursor(MySQLdb.cursors.DictCursor)
 		n = cur.execute(sql)
 		rows = cur.fetchall()
-		dic = {} #shop stock
+		dic = {} #店内剩余
 		for row in rows:
-			#custom in, stop check_stock
+			#店内进人，停止盘点
 			if key not in g_dicCanCheck:
 				result['ErrMsg'] = 'Broken_check_stock'
-				print "vendorId: " + vendorId + " shopId: " + shopId + " custom in, stop check_stock!"
+				print "商家ID：" + vendorId + " 门店ID：" + shopId + " 进人，停止盘点!"
 				break
 			skuCode = row['skuCode']
 			if skuCode == "":
 				continue
-			#match skuCode
+			#匹配skuCode
 			sql = "select * from sku where (skuCode = '" + skuCode + "' or barcode = '" + skuCode + "') and vendorId = '" + vendorId + "';"
 			#print sql
 			n = cur.execute(sql)
@@ -73,20 +78,20 @@ def check_stock(vendorId,shopId):
 				row0 = cur.fetchall()
 				skuCode = row0[0]['skuCode']
 			if skuCode in dic:
-				dic[skuCode] = dic.get(skuCode) + round(float(row['skuNum'])) #shop stock sum
+				dic[skuCode] = dic.get(skuCode) + round(float(row['skuNum'])) #店内库存汇总
 			else:
 				dic[skuCode] = round(float(row['skuNum']))
 		#for k in dic:
 		#	print k,' ',dic[k]
-		#match stock
+		#匹配库存
 		if key in g_dicCanCheck:
 			print "<skuCode>  <skuNum>  <stock>  [diff]"
 			for i in response['returnObject']:
 				#time.sleep(5)
-				#custom in, stop check_stock
+				#店内进人，停止盘点
 				if key not in g_dicCanCheck:
 					result['ErrMsg'] = 'Broken_check_stock'
-					print "vendorId: " + vendorId + " shopId: " + shopId + " custom in, stop check_stock!"
+					print "商家ID：" + vendorId + " 门店ID：" + shopId + " 进人，停止盘点!"
 					break
 				stock = round(float(i['stock']))
 				diff = 0.0
@@ -111,27 +116,26 @@ def check_stock(vendorId,shopId):
 	else:
 		result['ErrMsg'] = 'Failed_query_erp'
 		print "Failed to query the erp DB!!!"
-		print "vendorId: " + vendorId + " shopId: " + shopId + " check_stock error!"
+		print "商家ID：" + vendorId + " 门店ID：" + shopId + " 盘点失败！"
 	if result['result'] != []:
 		result['ErrMsg'] = 'Error_stock'
-	#check_stock end, reset CanCheck flag
+	#结束盘点，清空标志位
 	if key in g_dicCanCheck:
 		del g_dicCanCheck[key]
-	print "vendorId: " + vendorId + " shopId: " + shopId + " check_stock end!"
+	print "商家ID：" + vendorId + " 门店ID：" + shopId + " 结束盘点！"
 	return result
 
-#custom ShoppingCart
+#用户购物车信息
 g_dicShoppingChart = {}
 @csrf_exempt
 def index(request):
 	conn = MySQLdb.connect(host="127.0.0.1",user="tangff",passwd="migrsoft*2017",db="1015shop",charset="utf8")
-	cur = conn.cursor(MySQLdb.cursors.DictCursor)
+	cursor = conn.cursor()
 	result = {'result':'Failure'}
 	if request.method == 'POST':
+		print 
 		if request.body.find('steelyard_update') < 0:
-			print "\n[" + datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S') + "]"
-			strTemp = request.body.replace('\n','').replace('  ','')
-			print '\033[1;31;40m' + strTemp + '\033[0m'
+			print '\033[1;31;40m' + request.body + '\033[0m'
 		#request.body.encode('utf-8').strip()
 		req = json.loads(request.body,encoding="utf-8")
 		if request.body.find('CheckWeight') > 0:
@@ -145,38 +149,17 @@ def index(request):
 			logFile.write(request.body)
 			logFile.write('\n')
 			logFile.close()
-		if 'cpuId' in req:
-			#cpuId >>> vendorId shopId
-			reqJson = {}
-			reqJson['cpuId'] = req['cpuId']
-			response = http_post("http://base.haohuoshuo.com/api/exec?m=getCpuMessage&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-			#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			response = json.loads(response)
-			if response['returnCode'] == 10 and response['returnObject'] != {}:
-                                req['vendorId'] = response['returnObject']['vendorId']
-                                req['shopId'] = response['returnObject']['storeCode']
-				print req['cpuId'], " >>> ", req['vendorId'], " ", req['shopId']
-				cmd = ""
-				if 'lastCmd' not in req:
-					cmd = response['returnObject']['cmd']
-				version = response['returnObject']['version']
-				sql = "update boxid set vendorId = '" + req['vendorId'] + "', shopId = '" + req['shopId'] + "' where cpuId = '" + req['cpuId'] + "' and vendorId != '" + req['vendorId'] + "' and shopId != '" + req['shopId'] + "';"
-				print sql
-                        	cur.execute(sql)
-			else:
-				result = {'result':'Failure', 'ErrMsg':'unknown_cpuId'}
-				print "Failed to translate cpuId! ", req['cpuId']
-				conn.commit()
-				conn.close()
-				#return HttpResponse(json.dumps(result,ensure_ascii=False))
-				return HttpResponse(json.dumps(result,ensure_ascii=False,separators=(',',':')))
+		if 'vendorId' not in req: #测试
+			req['vendorId'] = '1853'
+			print "测试：添加req['vendorId'] = '1853'"
 		if (req['action'] == 'steelyard_get'):
 			result = {'result':[]}
 			mList = req['steelyardIds']
 			for i in mList:
 				if i == "AllSteelyardId":
-					sql = "select * from steelyard where steelyardId like '" + req['shopId'] + "______' and vendorId = '" + req['vendorId'] + "' and isEnable = '1';"
+					sql = "select * from steelyard where steelyardId like '" + req['shopId'] + "______' and vendorId = '" + req['vendorId'] + "';"
 					print sql
+					cur = conn.cursor(MySQLdb.cursors.DictCursor)
 					n = cur.execute(sql)
 					rows = cur.fetchall()
 					for row in rows:
@@ -198,8 +181,9 @@ def index(request):
 						dic['status'] = row['status']
 						result['result'].append(dic)
 					break
-				sql = "select * from steelyard where steelyardId like '" + i + "' and vendorId = '" + req['vendorId'] + "' and isEnable = '1';"
+				sql = "select * from steelyard where steelyardId like '" + i + "' and vendorId = '" + req['vendorId'] + "';"
 				print sql
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
 				n = cur.execute(sql)
 				if n > 0:
 					row = cur.fetchall()
@@ -224,143 +208,16 @@ def index(request):
 					result = {'result':'Failure', 'ErrMsg':'unknown_steelyardId'}
 					print "The DB does not have this steelyardId!!!"
 			cur.close()
-		
-		elif (req['action'] == 'Alarm'):
-			vendorId = str(req['vendorId'])
-			shopId = str(req['shopId'])
-			print '\033[1;31;40m' + "vendorId: " + vendorId + " shopId: " + shopId + " steelyardId: " + req['steelyardId'] + " running error!!!!!!" + '\033[0m'
-			reqErrJson = {}
-			reqErrJson['vendorId'] = vendorId
-			reqErrJson['storeCode'] = shopId
-			reqErrJson['errorMsg'] = req['steelyardId'] + " running error"
-			response = http_post("http://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
-			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			result = {'result': 'Success'}
-
-		elif (req['action'] == 'ShopHeartBeat'):
-			vendorId = str(req['vendorId'])
-			shopId = str(req['shopId'])
-			print "vendorId: " + vendorId + " shopId: " + shopId + " heart beat!"
-			result = {'result': 'Success', 'shopIn':'', 'shopOut':''}
-			reqMonitor = {}
-			reqMonitor['vendorId'] = vendorId
-			reqMonitor['storeCode'] = shopId
-			response = http_post("http://base.haohuoshuo.com/api/exec?m=storeMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
-			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			if req['in'] == 1:
-				reqJson = {}
-				reqJson['vendorId'] = vendorId
-				reqJson['storeCode'] = shopId
-				response = http_post("http://base.haohuoshuo.com/api/exec?m=getInDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-				response = json.loads(response)
-				if response['returnCode'] == 10 and response['returnObject'] != {}:
-				        result['shopIn'] = response['returnObject']['MemNo']
-				else:
-					print "Failed to getInDoorStatus from erp!"
-			if req['out'] == 1:
-				reqJson = {}
-				reqJson['vendorId'] = vendorId
-				reqJson['storeCode'] = shopId
-				response = http_post("http://base.haohuoshuo.com/api/exec?m=getPayMemNo&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-				response = json.loads(response)
-				if response['returnCode'] == 10 and response['returnObject'] != {}:
-                                        result['shopOut'] = response['returnObject']['outMemNo']
-				else:
-					print "Failed to getPayMemNo from erp!"
-
-		elif (req['action'] == 'heartBeat'):
-			vendorId = str(req['vendorId'])
-			shopId = str(req['shopId'])
-			print "vendorId: " + vendorId + " shopId: " + shopId + " heart beat!"
-			result = {'result': []}
-			reqMonitor = {}
-			reqMonitor['cpuId'] = req['cpuId']
-			response = http_post("http://base.haohuoshuo.com/api/exec?m=boxMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
-			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			reqJson = {}
-			reqJson['cpuId'] = req['cpuId']
-			if 'lastCmd' in req:
-				print "battery: %s  version: %s  lastCmd: %s" % (req['battery'], req['version'], req['lastCmd'])
-				if req['lastCmd'].find('_Success') > 0:
-					#sql = "update boxid set cmd = '' where cpuId = '" + req['cpuId'] + "' and cmd = 'update';"
-					#print sql
-                        		#cur.execute(sql)
-					reqJson['cmd'] = ""
-					cmd = ""
-			else:
-				print "battery: %s  version: %s" % (req['battery'], req['version'])
-			sql = "update boxid set version = '" + req['version'] + "' where cpuId = '" + req['cpuId'] + "' and version != '" + req['version'] + "';"
-			print sql
-                        cur.execute(sql)
-			if version != req['version']:
-				reqJson['version'] = req['version']
-			if 'cmd' in reqJson or 'version' in reqJson:
-				response = http_post("http://base.haohuoshuo.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			sql = "update steelyard set isError = '0' where shopId = '" + shopId + "' and isError != '0' and vendorId = '" + vendorId + "';"
-                        print sql
-                        cur.execute(sql)
-			for i in req['isError']:
-                                #sql = "update steelyard set isError = '-1' where steelyardId = '" + i + "' and isError != '-1' and vendorId = '" + vendorId + "';"
-                                sql = "update steelyard set isError = '" + i['grade'] + "' where steelyardId = '" + i['id'] + "' and isError != '" + i['grade'] + "' and vendorId = '" + vendorId + "' and shopId = '" + shopId + "';"
-                                print sql
-                                cur.execute(sql)
-			if 'isShopping' in req and req['isShopping'] == "0":
-				if req['isOpen'] == "1":
-					print '\033[1;31;40m' + "vendorId: " + vendorId + " shopId: " + shopId + " door status error!!!!!!" + '\033[0m'
-					reqErrJson = {}
-					reqErrJson['vendorId'] = vendorId
-					reqErrJson['storeCode'] = shopId
-					reqErrJson['errorMsg'] = "door status error without shopping"
-					response = http_post("http://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
-					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-				reqJson = {}
-				reqJson['cpuId'] = req['cpuId']
-				response = http_post("http://base.haohuoshuo.com/api/exec?m=getDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-				response = json.loads(response)
-				if response['returnCode'] == 10 and response['returnObject'] != {}:
-                                	dic = {}
-                                        dic['userId'] = response['returnObject']['memNo']
-                                        dic['type'] = response['returnObject']['memberType']
-                                        dic['status'] = response['returnObject']['status']
-                                        #dic['doorStatus'] = response['returnObject']['doorStatus']
-                                        result['result'].append(dic)
-				else:
-					print "Failed to getDoorStatus from erp!"
-			#sql = "select * from boxid where cpuId = '" + req['cpuId'] + "';"
-			#print sql
-			#n = cur.execute(sql)
-			#if n > 0:
-			#	row = cur.fetchall()
-			#	cmd = row[0]['cmd']
-			if cmd == "update":
-				result['cmd'] = "update"
-				cmdArg = {}
-				cmdArg['user'] = "administrator";
-				cmdArg['pwd'] = "Gcwtled901";
-				cmdArg['path'] = "ftp://47.95.242.148:21/box_firmware/Debug/ScaleWeightMsg_user_scan_qrcode" #BJ_test
-				#cmdArg['path'] = "ftp://47.95.242.148:21/box_firmware/Release/ScaleWeightMsg_user_scan_qrcode" #NJ_operative
-				result['cmdArg'] = cmdArg
-			elif cmd == "uploadLog":
-				result['cmd'] = "uploadLog"
-				cmdArg = {}
-				cmdArg['user'] = "administrator";
-				cmdArg['pwd'] = "Gcwtled901";
-				cmdArg['path'] = "ftp://47.95.242.148:21/box_log/Debug/" + vendorId + "_" + shopId + ".log" + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-				#cmdArg['path'] = "ftp://47.95.242.148:21/box_log/Release/" + vendorId + "_" + shopId + ".log" + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-				result['cmdArg'] = cmdArg
 
 		elif (req['action'] == 'heart_beat'):
 			vendorId = str(req['vendorId'])
 			shopId = str(req['shopId'])
-			print "vendorId: " + vendorId + " shopId: " + shopId + " heart beat!"
-			result = {'result': []}
-			print "battery: %s  version: %s" % (req['battery'], req['version'])
+			print "商家ID：" + vendorId + " 门店ID：" + shopId + " 心跳包！"
+			result = {"result": []}
+			print "battery: %s  version: %s" % (req['battery'],req['version'])
 			sql = "update steelyard set isError = '0' where steelyardId like '" + shopId + "______' and isError != '0' and vendorId = '" + vendorId + "';"
                         print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
                         cur.execute(sql)
 			for i in req['isError']:
                                 sql = "update steelyard set isError = '-1' where steelyardId = '" + i + "' and isError != '-1' and vendorId = '" + vendorId + "';"
@@ -370,7 +227,9 @@ def index(request):
 				reqJson = {}
 				reqJson['vendorId'] = vendorId
 				reqJson['storeCode'] = shopId
-				response = http_post("http://base.haohuoshuo.com/api/exec?m=getStoreDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				#reqJson['storeCode'] = 'BM01' #测试
+				response = http_post("http://base.dianxiaohuo.net/api/exec?m=getStoreDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				#print "HTTP response: " + response
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				response = json.loads(response)
 				if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -380,16 +239,17 @@ def index(request):
                                         dic['status'] = response['returnObject']['status']
                                         #dic['doorStatus'] = response['returnObject']['doorStatus']
                                         result['result'].append(dic)
+					print result
 				else:
-					#test
-					#result = {'result': [{"status": "0", "type": "0", "userId": "16629396"}]}
-					print "Failed to getStoreDoorStatus from erp!"
+					#测试
+					#result = {"result": [{"status": "0", "type": "0", "userId": "16629396"}]}
+					print result
 
 		elif (req['action'] == 'shopEntry_in'):
 			vendorId = str(req['vendorId'])
 			shopId = str(req['shopId'])
-			print "vendorId: " + vendorId + " shopId: " + shopId + " custom in, stop check_stock!"
-			#notify algorithm
+			print "商家ID：" + vendorId + " 门店ID：" + shopId + " 进人！终止盘点！"
+			#通知算法
 			cmd = "INOUT$" + req['customId']+ "$" + str(1) + "$" + req['timeStamp'] + "$" + vendorId + "$" + shopId
 			print cmd
 			socket.send(cmd.encode('ascii'))
@@ -397,30 +257,32 @@ def index(request):
 			logFile.write(cmd)
 			logFile.write('\n')
 			logFile.close()
-			#reset CanCheck flag
+			#清除标志位
 			global g_dicCanCheck
-			key = vendorId + shopId #vendorId + shopId
+			key = vendorId + shopId #商家ID + 门店ID
 			if key in g_dicCanCheck:
 				del g_dicCanCheck[key]
 			else:
-				print "vendorId: " + vendorId + " shopId: " + shopId + " not in check_stock!"
+				print "商家ID：" + vendorId + " 门店ID：" + shopId + " 未在盘点！"
 			result = {'result':'Success'}
 
 		elif (req['action'] == 'shopEntry_empty'):
 			vendorId = str(req['vendorId'])
 			shopId = str(req['shopId'])
-			print "vendorId: " + vendorId + " shopId: " + shopId + " unmanned! can check_stock!"
+			print "商家ID：" + vendorId + " 门店ID：" + shopId + " 无人！可以盘点！"
 			global g_dicCanCheck
-			key = vendorId + shopId #vendorId + shopId
+			key = vendorId + shopId #商家ID + 门店ID
 			if key not in g_dicCanCheck:
 				g_dicCanCheck[key] = 1
 				result = check_stock(vendorId,shopId)
+				#thread_check_stock = threading.Thread(target=check_stock,args=(vendorId,shopId,),name=key)
+				#thread_check_stock.start()
 			else:
 				result = {'result':[], 'ErrMsg':'Checking_stock'}
-				print "vendorId: " + vendorId + " shopId: " + shopId + " in check_stock!"
+				print "商家ID：" + vendorId + " 门店ID：" + shopId + " 正在盘点！"
 
                 elif (req['action'] == 'shopEntryHistory_insert'):
-			#notify algorithm
+			#通知算法
 			cmd = "INOUT$" + req['customId']+ "$" + str(0) + "$" + req['timeStamp'] + "$" + req['vendorId'] + "$" + req['shopId']
 			print cmd
 			socket.send(cmd.encode('ascii'))
@@ -430,6 +292,7 @@ def index(request):
 			logFile.close()
                         sql = "insert into shopentryhistory values('" + req['entryTime'] + "','" + req['exitTime'] + "','" + req['customId'] + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
                         print sql
+                        cur = conn.cursor(MySQLdb.cursors.DictCursor)
                         n = cur.execute(sql)
                         if n > 0:
                                 result = {'result':'Success'}
@@ -438,11 +301,65 @@ def index(request):
                                 print "Failed to insert shopentryhistory!!!"
                         cur.close()
 
+                elif (req['action'] == 'customOrder_insert'):
+                        sql = "insert into customorder values('" + req['customOrderId'] + "','" + req['orderId'] + "','" + req['customId'] + "','" + req['amount'] + "','" + req['payment'] + "','" + req['description'] + "','" + req['createTime'] + "','" + req['vendorId'] + "','" + req['shopId'] + "','" + req['result'] + "');"
+                        print sql
+                        cur = conn.cursor(MySQLdb.cursors.DictCursor)
+                        n = cur.execute(sql)
+                        if n > 0:
+                                result = {'result':'Success'}
+                        else:
+				result = {'result':'Failure', 'ErrMsg':'Failed_insert_customOrder'}
+                                print "Failed to insert customorder!!!"
+                        cur.close()
+
+                elif (req['action'] == 'orderItem_insert'):
+                        sql = "insert into orderitem(customOrderId,customId,skuCode,skuCount,result) values('" + req['customOrderId'] + "','" + req['customId'] + "','" + req['skuCode'] + "','" + req['skuCount'] + "','" + req['result'] + "');"
+                        print sql
+                        cur = conn.cursor(MySQLdb.cursors.DictCursor)
+                        n = cur.execute(sql)
+                        if n > 0:
+                                result = {'result':'Success'}
+                        else:
+				result = {'result':'Failure', 'ErrMsg':'Failed_insert_orderItem'}
+                                print "Failed to insert orderitem!!!"
+                        cur.close()
+
+                elif (req['action'] == 'skustock_update'):
+			sql = "select * from sku where (skuCode = '" + req['skuCode'] + "' or barcode = '" + req['skuCode'] + "') and vendorId = '" + req['vendorId'] + "';"
+			print sql
+                        cur = conn.cursor(MySQLdb.cursors.DictCursor)
+			n = cur.execute(sql)
+			if n > 0:
+				row = cur.fetchall()
+				req['skuCode'] = row[0]['skuCode']
+	                        sql = "select * from skustock where shopId = '" + req['shopId'] + "' and skuCode = '" + req['skuCode'] + "' and vendorId = '" + req['vendorId'] + "';"
+				print sql
+                        	n = cur.execute(sql)
+                        	if n > 0:
+                                	row = cur.fetchall()
+                                	count = int(row[0]['skuCount']) - int(req['skuCount'])
+                                	sql = "update skustock set skuCount = '" + str(count) + "' where shopId = '" + req['shopId'] + "' and skuCode = '" + req['skuCode'] + "' and vendorId = '" + req['vendorId'] + "';"
+                                	print sql
+                                	n = cur.execute(sql)
+                                	if n > 0:
+                                        	result = {'result':'Success'}
+                                	else:
+						result = {'result':'Failure', 'ErrMsg':'Failed_update_skustock'}
+                                        	print "Failed to update skustock!!!"
+                        	else:
+					result = {'result':'Failure', 'ErrMsg':'unknown_skustock'}
+                                	print "The DB does not have this skustock!!!"
+                        else:
+				result = {'result':'Failure', 'ErrMsg':'unknown_skuCode'}
+                               	print "The DB does not have this skuCode!!!"
+                        cur.close()
+
                 elif (req['action'] == 'customManager_get'):
 			reqJson = {}
 			reqJson['vendorId'] = req['vendorId']
 			reqJson['memNo'] = req['customId']
-			response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=getMemberForBox&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson)
+			response = http_post("http://mem.dianxiaohuo.net/api/qxMem?m=getMemberForBox&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson)
 			#print "HTTP response: " + response
 			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			response = json.loads(response)
@@ -464,20 +381,34 @@ def index(request):
 				result = {'result':'Failure', 'ErrMsg':'"Failed_query_erp'}
 				print "Failed to query the erp DB!!!"
 
-		elif (req['action'] == 'addskuStart'):
-			sql = "insert into addsku(startTime,userId,skuMsgStart,vendorId,shopId) values('" + req['startTime'] + "','" + req['userId'] + "','" + str(req['skuMsg']) + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
-			print sql
-			n = cur.execute(sql)
-			if n > 0:
-				result = {'result':'Success'}
-			else:
-				result = {'result':'Failure', 'ErrMsg':'Failed_start_addsku'}
-				print "Failed to start addsku!!!"
-			cur.close()
+
+                        #sql = "select * from custommanager where customId = '" + req['customId'] + "';"
+                        #print sql
+                        #cur = conn.cursor(MySQLdb.cursors.DictCursor)
+                        #n = cur.execute(sql)
+                        #if n > 0:
+			#	result = {'result':[]}
+                        #	rows = cur.fetchall()
+                        #	for row in rows:
+                        #        	dic = {}
+                        #                dic['userId'] = row['customId']
+                        #                #dic['openId'] = row['openId']
+                        #                #dic['username'] = row['username']
+                        #                #dic['password'] = row['password']
+                        #                #dic['remark'] = row['remark']
+                        #                #dic['tel'] = row['tel']
+                        #                dic['type'] = row['types']
+                        #                dic['status'] = row['status']
+                        #                result['result'].append(dic)
+                        #else:
+			#	result = {'result':'Failure', 'ErrMsg':'unknown_customId'}
+                        #	print "The DB does not have this customId!!!"
+                        #cur.close()
 
 		elif (req['action'] == 'addsku_start'):
 			sql = "insert into addsku(startTime,userId,skuMsgStart,vendorId,shopId) values('" + req['startTime'] + "','" + req['userId'] + "','" + str(req['skuMsg']) + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
 				result = {'result':'Success'}
@@ -486,88 +417,47 @@ def index(request):
 				print "Failed to start addsku!!!"
 			cur.close()
 
-		elif (req['action'] == 'addskuEnd'):
-			sql = "update addsku set endTime = '" + req['endTime'] + "', skuMsgEnd = '" + req['skuMsg'] + "', status = '1' where userId = '" + req['userId'] + "' and shopId = '" + req['shopId'] + "' and status = '0' and vendorId = '" + req['vendorId'] + "';"
-			print sql
-			n = cur.execute(sql)
-			if n > 0:
-				result = {'result':'Success'}
-			else:
-				result = {'result':'Failure', 'ErrMsg':'Failed_end_addsku'}
-				print "Failed to end addsku!!!"
-			cur.close()
-
 		elif (req['action'] == 'addsku_end'):
 			sql = "update addsku set endTime = '" + req['endTime'] + "', skuMsgEnd = '" + req['skuMsg'] + "', status = '1' where userId = '" + req['userId'] + "' and shopId = '" + req['shopId'] + "' and status = '0' and vendorId = '" + req['vendorId'] + "';"
+			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
 				result = {'result':'Success'}
 			else:
 				result = {'result':'Failure', 'ErrMsg':'Failed_end_addsku'}
 				print "Failed to end addsku!!!"
-			cur.close()
-
-		elif (req['action'] == 'shoppingChart'):
-			mList = req['skuMsg']
-			sql = "insert into shopping_chart(createTime,userId,skuMsg,vendorId,shopId) values('" + req['createTime'] + "','" + req['userId'] + "','" + str(req['skuMsg']) + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
-			print sql
-			n = cur.execute(sql)
-			if n > 0:
-				result = {'result':'Success'}
-				strlist = req['skuMsg'].split(';')
-				reqJson = {'payFlag':'0','saleDetailList':[]}
-				reqJson['vendorId'] = int(req['vendorId'])
-				reqJson['orderStore'] = req['shopId']
-				reqJson['memberCode'] = req['userId']
-				for i in strlist:
-					if i != "": 
-						strlist0 = i.split(':')
-						if int(strlist0[1]) > 0:
-							sql = "select * from sku where (skuCode = '" + strlist0[0] + "' or barcode = '" + strlist0[0] + "') and vendorId = '" + req['vendorId'] + "';"
-							print sql
-							n = cur.execute(sql)
-							if n > 0:
-								row = cur.fetchall()
-								strlist0[0] = row[0]['skuCode']
-								saleDetailList = {}
-								saleDetailList['skuCode'] = strlist0[0]
-								saleDetailList['skuNum'] = int(strlist0[1])
-								reqJson['saleDetailList'].append(saleDetailList)
-							else:
-								saleDetailList = {}
-								saleDetailList['skuCode'] = strlist0[0]
-								saleDetailList['skuNum'] = int(strlist0[1])
-								reqJson['saleDetailList'].append(saleDetailList)
-								print "The DB does not have this skuCode!!!"
-				if reqJson['saleDetailList'] != []:
-					#update custom status
-					reqJson0 = {'status':'-1'}
-					reqJson0['vendorId'] = int(req['vendorId'])
-					reqJson0['memNo'] = req['userId']
-					response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
-					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-					response = http_post("http://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-			else:
-				result = {'result':'Failure', 'ErrMsg':'Failed_insert_shopping_chart'}
-				print "Failed to insert shopping_chart!!!"
 			cur.close()
 
 		elif (req['action'] == 'shopping_chart'):
+			#盒子关门状态设置
+			reqJson1 = {"doorStatus":0,"memNo":""}
+			reqJson1['vendorId'] = req['vendorId']
+			reqJson1['storeCode'] = req['shopId']
+			#reqJson1['storeCode'] = 'BM01' #测试
+			response = http_post("http://base.dianxiaohuo.net/api/exec?m=updateStoreDoorStatu&token=H8DH9Snx9877SDER5667&reqJson=",reqJson1)
+			#print "HTTP response: " + response
+			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			mList = req['skuMsg']
 			sql = "insert into shopping_chart(createTime,userId,skuMsg,vendorId,shopId) values('" + req['createTime'] + "','" + req['userId'] + "','" + str(req['skuMsg']) + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
 				result = {'result':'Success'}
 				strlist = req['skuMsg'].split(';')
+				now = ""
+				customOrderId = ""
+				total = 0
+				amount = 0.0000
 				reqJson = {'payFlag':'0','saleDetailList':[]}
 				reqJson['vendorId'] = int(req['vendorId'])
 				reqJson['orderStore'] = req['shopId']
+				#reqJson['orderStore'] = 'BM01' #测试
 				reqJson['memberCode'] = req['userId']
 				for i in strlist:
 					if i != "": 
-						#print "skuMsg: " + i
+						print "skuMsg: " + i
 						strlist0 = i.split(':')
 						#print "skuCode: " + strlist0[0] + "  skuCount: " + strlist0[1]
 						if int(strlist0[1]) > 0:
@@ -576,67 +466,74 @@ def index(request):
 							n = cur.execute(sql)
 							if n > 0:
 								row = cur.fetchall()
+								salePrice = float(row[0]['salePrice'])
 								strlist0[0] = row[0]['skuCode']
+								now = datetime.datetime.now()
+								customOrderId = now.strftime('%Y%m%d%H%M%S') + req['shopId']
+								#sql = "insert into orderitem(customOrderId,customId,skuCode,skuCount) values('" + customOrderId + "','" + req['userId'] + "','" + strlist0[0] + "','" + strlist0[1] + "');"
+								#print sql
+								#cur.execute(sql)
+								amount += salePrice * int(strlist0[1])
+								total += int(strlist0[1])
 								saleDetailList = {}
 								saleDetailList['skuCode'] = strlist0[0]
 								saleDetailList['skuNum'] = int(strlist0[1])
 								reqJson['saleDetailList'].append(saleDetailList)
+	                        				#sql = "select * from skustock where shopId = '" + req['shopId'] + "' and skuCode = '" + strlist0[0] + "' and vendorId = '" + req['vendorId'] + "';"
+        	                				#print sql
+        	                				#n = cur.execute(sql)
+               		         				#if n > 0:
+                	        				#        row = cur.fetchall()
+                       		 				#        count = int(row[0]['skuCount']) - int(strlist0[1])
+                        					#        sql = "update skustock set skuCount = '" + str(count) + "' where shopId = '" + req['shopId'] + "' and skuCode = '" + strlist0[0] + "' and vendorId = '" + req['vendorId'] + "';"
+                        					#        print sql
+                        					#        n = cur.execute(sql)
+                        					#        if n > 0:
+								#		now = datetime.datetime.now()
+								#		customOrderId = now.strftime('%Y%m%d%H%M%S') + req['shopId']
+								#		sql = "insert into orderitem(customOrderId,customId,skuCode,skuCount) values('" + customOrderId + "','" + req['userId'] + "','" + strlist0[0] + "','" + strlist0[1] + "');"
+								#		print sql
+								#		cur.execute(sql)
+								#		amount += salePrice * int(strlist0[1])
+								#		total += int(strlist0[1])
+								#		saleDetailList = {}
+								#		saleDetailList['skuCode'] = strlist0[0]
+								#		saleDetailList['skuNum'] = int(strlist0[1])
+								#		reqJson['saleDetailList'].append(saleDetailList)
+								#	 else:
+                        					#               print "Failed to update skustock!!!"
+                        					#else:
+                        					#        print "The DB does not have this skustock!!!"
 							else:
-								saleDetailList = {}
-								saleDetailList['skuCode'] = strlist0[0]
-								saleDetailList['skuNum'] = int(strlist0[1])
-								reqJson['saleDetailList'].append(saleDetailList)
 								print "The DB does not have this skuCode!!!"
-				if reqJson['saleDetailList'] != []:
-					#update custom status
+				if now != "":
+					#更新用户状态
 					reqJson0 = {'status':'-1'}
 					reqJson0['vendorId'] = int(req['vendorId'])
 					reqJson0['memNo'] = req['userId']
-					response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
+					response = http_post("http://mem.dianxiaohuo.net/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
 					#print "HTTP response: " + response
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-					response = http_post("http://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+					response = http_post("http://order.dianxiaohuo.net/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 					#print "HTTP response: " + response
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
+					#sql = "insert into customorder(customOrderId,customId,amount,description,createTime,vendorId,shopId) values('" + customOrderId + "','" + req['userId'] + "','" + str(amount) + "','" + "Unmanned Box Order" + "','" + now.strftime('%Y/%m/%d %H:%M:%S') + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
+					#print sql
+					#cur.execute(sql)
+					#sql = "update custommanager set status = '-1' where customId = '" + req['userId'] + "';"
+					#print sql
+					#cur.execute(sql)
+					#微信支付
+					#sendOrderMessage(str(customOrderId),str(req['userId']),str(amount),str(total),"Unmanned Box Order","0")
 			else:
 				result = {'result':'Failure', 'ErrMsg':'Failed_insert_shopping_chart'}
 				print "Failed to insert shopping_chart!!!"
 			cur.close()
 
-		elif (req['action'] == 'skuGet'):
-			sql = "select * from steelyard where shopId = '" + req['shopId'] + "' and skuCode != '' and vendorId = '" + req['vendorId'] + "';"
-			print sql
-			n = cur.execute(sql)
-			if n > 0:
-				result = {'result':[]}
-				rows = cur.fetchall()
-				for row in rows:
-					dic = {} 
-					dic['steelyardId'] = row['steelyardId']
-					dic['skuCode'] = row['skuCode']
-					dic['unitWeight'] = "0"
-					if row['skuCode'] != "":
-						sql = "select * from sku where (skuCode = '" + row['skuCode'] + "' or barcode = '" + row['skuCode'] + "') and vendorId = '" + req['vendorId'] + "';"
-						print sql
-						n = cur.execute(sql)
-						if n > 0:
-							row0 = cur.fetchall()
-							dic['unitWeight'] = row0[0]['unitWeight']
-						else:
-							print "Failed to get unitWeight!!!  " + row['steelyardId'] + " " + row['skuCode']
-							continue
-					else:
-						continue
-					dic['currWeight'] = row['currWeight']
-					result['result'].append(dic)
-			else:
-				result = {'result':'Failure', 'ErrMsg':'no_match_steelyard'}
-				print "The DB does not have this shopId data!!!"
-			cur.close()
-
 		elif (req['action'] == 'sku_get'):
 			sql = "select * from steelyard where steelyardId like '" + req['shopId'] + "______' and skuCode != '' and vendorId = '" + req['vendorId'] + "';"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
 				result = {'result':[]}
@@ -661,8 +558,8 @@ def index(request):
 					dic['currWeight'] = row['currWeight']
 					result['result'].append(dic)
 			else:
-				result = {'result':'Failure', 'ErrMsg':'no_match_steelyard'}
-				print "The DB does not have this shopId data!!!"
+				result = {'result':'Failure', 'ErrMsg':'unknown_shopId'}
+				print "The DB does not have this shopId!!!"
 			cur.close()
 
 		elif (req['action'] == 'ShoppingCartEnd'):
@@ -730,17 +627,18 @@ def index(request):
 			skuCount = str(req['skuCount'])
 			operation = str(req['operation'])
 			timestamp = str(req['timeStamp'])
-			print "vendorId: " + vendorId + " steelyardId: " + steelyardId + " sku: " + skuCode + " operation: " + operation
+			print "商家ID：" + vendorId + " 称ID：" + steelyardId + " sku：" + skuCode + " 操作：" + operation
 			if (operation == '0' or operation == '1') and skuCode != '' and skuCount != '0':
-				sql = "select * from steelyard where steelyardId = '" + steelyardId + "' and vendorId = '" + vendorId + "' and shopId = '" + shopId + "';"
+				sql = "select * from steelyard where steelyardId = '" + steelyardId + "' and vendorId = '" + vendorId + "';"
 				print sql
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
 				n = cur.execute(sql)
 				if n > 0:
 					row = cur.fetchall()
 					x = row[0]['posX']
 					y = row[0]['posY']
 					z = row[0]['posZ']
-					#notify algorithm
+					#通知算法
 					cmd = "SCALE$" + skuCode + "$" + skuCount + "$" + operation + "$" + timestamp + "$" + x + "," + y + "," + z + "$" + vendorId + "$" + shopId
 					print cmd
 					socket.send(cmd.encode('ascii'))
@@ -755,41 +653,83 @@ def index(request):
 						skuNum += int(skuCount)
 					elif operation == '1':
 						skuNum -= int(skuCount)
-                                	sql = "update steelyard set skuNum = '" + str(skuNum) + "' where steelyardId = '" + steelyardId + "' and vendorId = '" + vendorId + "' and shopId = '" + shopId + "';"
-                                	print sql
-                                	cur.execute(sql)
+					sql = "update steelyard set skuNum = '" + str(skuNum) + "' where steelyardId = '" + steelyardId + "' and vendorId = '" + vendorId + "';"
+					print sql 
+					cur.execute(sql)
 				else:
 					result = {'result':'Failure', 'ErrMsg':'unknown_steelyardId/vendorId'}
 					print "The DB does not have this steelyardId/vendorId!!!"
+			sql = "update timestamp set isCheck = '1' where steelyardId = '" + steelyardId + "' and vendorId = '" + vendorId + "' and isCheck = '0';"
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
+			print sql
+			cur.execute(sql)
+			cur.close()
 
 		elif (req['action'] == 'steelyard_update'):
 			offsetWeight = req['offsetWeight']
 			if offsetWeight == 'N':
 				sql = "update steelyard set currWeight = '" + req['currWeight'] + "' where steelyardId = '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 				#print sql
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
 				n = cur.execute(sql)
 				if n > 0:
 					result = {'result':'Success'}
 				else:
 					result = {'result':'Failure', 'ErrMsg':'Failed_update_currWeight'}
 					print "Failed to update steelyard currWeight!!!"
+				if 'timeStamp' in req:
+					offsetWeight = "0"
+					sql = "select * from steelyard where steelyardId = '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
+					print sql
+					n = cur.execute(sql)
+					if n > 0:
+						row = cur.fetchall()
+						offsetWeight = row[0]['offsetWeight']
+					currRealWeight = float(req['currWeight']) - float(offsetWeight)
+					firstFlag = "0"
+					if 'firstFlag' in req:
+						firstFlag = req['firstFlag']
+					sql = "insert into timestamp values('" + req['vendorId'] + "','" + req['steelyardId'] + "','" + req['timeStamp'] + "','" + str(currRealWeight) + "','" + firstFlag + "','0');"
+					print sql
+					cur.execute(sql)
 			else:
 				sql = "update steelyard set currWeight = '" + req['currWeight'] + "', offsetWeight = '" + req['offsetWeight'] + "' where steelyardId = '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 				#print sql
+				cur = conn.cursor(MySQLdb.cursors.DictCursor)
 				n = cur.execute(sql)
 				if n > 0:
 					result = {'result':'Success'}
 				else:
 					result = {'result':'Failure', 'ErrMsg':'Failed_update_offsetWeight'}
 					print "Failed to update steelyard offsetWeight!!!"
+			#if req['skuCode'] != "":
+			#	offsetWeight = "0"
+			#	sql = "select * from steelyard where steelyardId = '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
+			#	#print sql
+			#	n = cur.execute(sql)
+			#	if n > 0:
+			#		row = cur.fetchall()
+			#		offsetWeight = row[0]['offsetWeight']
+			#	sql = "select * from sku where (skuCode = '" + req['skuCode'] + "' or barcode = '" + req['skuCode'] + "') and vendorId = '" + req['vendorId'] + "';"
+			#	#print sql
+			#	n = cur.execute(sql)
+			#	if n > 0:
+			#		row = cur.fetchall()
+			#		skuNum = (float(req['currWeight']) - float(offsetWeight))/float(row[0]['unitWeight'])
+			#		#print "currWeight: " + req['currWeight'] + " offsetWeight: " + offsetWeight + " unitWeight: " + row[0]['unitWeight']
+			#		skuNum = ("%.2f" % skuNum) #浮点数取小数点后2位
+			#		sql = "update steelyard set skuNum = '" + str(skuNum) + "' where steelyardId = '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
+			#		#print sql
+			#		cur.execute(sql)
 			cur.close()
 
 		elif (req['action'] == 'steelyard_update_status'):
 			sql = "select * from steelyard where steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
-				sql = "update steelyard set status = '" + req['status'] + "' where status != '" + req['status'] + "' and steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
+				sql = "update steelyard set status = '" + req['status'] + "' where steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 				print sql
 				cur.execute(sql)
 				result = {'result':'Success'}
@@ -801,9 +741,10 @@ def index(request):
 		elif (req['action'] == 'steelyard_update_isError'):
 			sql = "select * from steelyard where steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			if n > 0:
-				sql = "update steelyard set isError = '" + req['isError'] + "' where isError != '" + req['isError'] + "' and steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
+				sql = "update steelyard set isError = '" + req['isError'] + "' where steelyardId like '" + req['steelyardId'] + "' and vendorId = '" + req['vendorId'] + "';"
 				print sql
 				cur.execute(sql)
 				result = {'result':'Success'}
@@ -817,6 +758,7 @@ def index(request):
 			primary_key = ""
 			sql = "show columns from " + req['TableName'] + ";"
 			print sql
+			cur = conn.cursor(MySQLdb.cursors.DictCursor)
 			n = cur.execute(sql)
 			rows = cur.fetchall()
 			for row in rows:
@@ -864,14 +806,12 @@ def index(request):
 								print "Failed_to_insert"
 			cur.close()
 
+		cursor.close()
 		conn.commit()
 		conn.close()
-		#print result
-		#return HttpResponse(json.dumps(result,ensure_ascii=False))
-		return HttpResponse(json.dumps(result,ensure_ascii=False,separators=(',',':')))
+		return HttpResponse(json.dumps(result,ensure_ascii=False))
 
 	if request.method == 'GET':
-		return HttpResponse("[" + datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S') + "] " + "Hello World")
-		#return render(request,'weixin/home.html')
-
+		return HttpResponse("Hello World")
+		#return render(request,'weixin/home.html');
 
