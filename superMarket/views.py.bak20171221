@@ -43,7 +43,7 @@ def check_stock(vendorId,shopId):
 	reqJson['vendorId'] = vendorId
 	reqJson['storeCode'] = shopId
 	reqJson['skuInfo'] = ''
-	response = http_post("https://erp.haohuoshuo.com/api/exec?m=getSkustockByVenStoreSku&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+	response = http_post("http://erp.haohuoshuo.com/api/exec?m=getSkustockByVenStoreSku&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 	#print "HTTP response: " + response
 	#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	response = json.loads(response)
@@ -149,7 +149,7 @@ def index(request):
 			#cpuId >>> vendorId shopId
 			reqJson = {}
 			reqJson['cpuId'] = req['cpuId']
-			response = http_post("https://base.haohuoshuo.com/api/exec?m=getCpuMessage&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+			response = http_post("http://base.haohuoshuo.com/api/exec?m=getCpuMessage&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 			#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			response = json.loads(response)
 			if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -240,7 +240,7 @@ def index(request):
 			reqErrJson['storeCode'] = shopId
 			reqErrJson['type'] = '3'
 			reqErrJson['errorMsg'] = req['steelyardId'] + " running error"
-			response = http_post("https://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
+			response = http_post("http://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
 			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			result = {'result': 'Success'}
 
@@ -252,13 +252,13 @@ def index(request):
 			reqMonitor = {}
 			reqMonitor['vendorId'] = vendorId
 			reqMonitor['storeCode'] = shopId
-			response = http_post("https://base.haohuoshuo.com/api/exec?m=storeMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
+			response = http_post("http://base.haohuoshuo.com/api/exec?m=storeMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
 			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			if req['in'] == 1:
 				reqJson = {}
 				reqJson['vendorId'] = vendorId
 				reqJson['storeCode'] = shopId
-				response = http_post("https://base.haohuoshuo.com/api/exec?m=getInDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				response = http_post("http://base.haohuoshuo.com/api/exec?m=getInDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				response = json.loads(response)
 				if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -269,7 +269,7 @@ def index(request):
 				reqJson = {}
 				reqJson['vendorId'] = vendorId
 				reqJson['storeCode'] = shopId
-				response = http_post("https://base.haohuoshuo.com/api/exec?m=getPayMemNo&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				response = http_post("http://base.haohuoshuo.com/api/exec?m=getPayMemNo&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				response = json.loads(response)
 				if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -284,7 +284,7 @@ def index(request):
 			result = {'result': []}
 			reqMonitor = {}
 			reqMonitor['cpuId'] = req['cpuId']
-			response = http_post("https://base.haohuoshuo.com/api/exec?m=boxMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
+			response = http_post("http://base.haohuoshuo.com/api/exec?m=boxMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
 			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			reqJson = {}
 			reqJson['cpuId'] = req['cpuId']
@@ -304,7 +304,7 @@ def index(request):
 			if version != req['version']:
 				reqJson['version'] = req['version']
 			if 'cmd' in reqJson or 'version' in reqJson:
-				response = http_post("https://base.haohuoshuo.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				response = http_post("http://base.haohuoshuo.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			sql = "update steelyard set isError = '0' where shopId = '" + shopId + "' and isError != '0' and vendorId = '" + vendorId + "';"
                         print sql
@@ -321,11 +321,11 @@ def index(request):
 					reqErrJson['storeCode'] = shopId
 					reqErrJson['type'] = '2'
 					reqErrJson['errorMsg'] = "door status error without shopping"
-					response = http_post("https://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
+					response = http_post("http://base.haohuoshuo.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				reqJson = {}
 				reqJson['cpuId'] = req['cpuId']
-				response = http_post("https://base.haohuoshuo.com/api/exec?m=getDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				response = http_post("http://base.haohuoshuo.com/api/exec?m=getDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				response = json.loads(response)
 				if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -371,7 +371,7 @@ def index(request):
 				reqJson = {}
 				reqJson['vendorId'] = vendorId
 				reqJson['storeCode'] = shopId
-				response = http_post("https://base.haohuoshuo.com/api/exec?m=getStoreDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				response = http_post("http://base.haohuoshuo.com/api/exec?m=getStoreDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 				response = json.loads(response)
 				if response['returnCode'] == 10 and response['returnObject'] != {}:
@@ -443,7 +443,7 @@ def index(request):
 			reqJson = {}
 			reqJson['vendorId'] = req['vendorId']
 			reqJson['memNo'] = req['customId']
-			response = http_post("https://mem.haohuoshuo.com/api/qxMem?m=getMemberForBox&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson)
+			response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=getMemberForBox&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson)
 			#print "HTTP response: " + response
 			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			response = json.loads(response)
@@ -540,9 +540,9 @@ def index(request):
 				reqJson0 = {'status':'-1'}
 				reqJson0['vendorId'] = int(req['vendorId'])
 				reqJson0['memNo'] = req['userId']
-				#response = http_post("https://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
+				#response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
 				#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-				#response = http_post("https://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+				#response = http_post("http://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			cur.close()
 
@@ -582,9 +582,9 @@ def index(request):
 					reqJson0 = {'status':'-1'}
 					reqJson0['vendorId'] = int(req['vendorId'])
 					reqJson0['memNo'] = req['userId']
-					response = http_post("https://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
+					response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-					response = http_post("https://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+					response = http_post("http://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			else:
 				result = {'result':'Failure', 'ErrMsg':'Failed_insert_shopping_chart'}
@@ -629,10 +629,10 @@ def index(request):
 					reqJson0 = {'status':'-1'}
 					reqJson0['vendorId'] = int(req['vendorId'])
 					reqJson0['memNo'] = req['userId']
-					response = http_post("https://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
+					response = http_post("http://mem.haohuoshuo.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
 					#print "HTTP response: " + response
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-					response = http_post("https://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+					response = http_post("http://order.haohuoshuo.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 					#print "HTTP response: " + response
 					print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 			else:
