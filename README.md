@@ -1,0 +1,2 @@
+Django是一个开源的Web应用框架，由Python语言编写。
+本模块是运行于Django框架下的一个项目，项目主体文件位于/home/shop/testProject目录。功能是为无人box和无人便利店提供必要的云端服务，联通算法、erp后台、pos端、嵌入式等模块，通过HTTP和ZeroMQ消息队列传递数据，通过MySQL数据库存储数据。
