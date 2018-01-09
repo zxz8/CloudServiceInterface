@@ -290,9 +290,6 @@ def index(request):
 					cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Debug/" #BJ_test
 					#cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Release/" #NJ_operative
 					result['shopCmdArg'] = cmdArg
-				else:
-					if cmd != "":
-						result['cmd'] = cmd
 				reqJson['cmd'] = ""
 				response = http_post("https://base.1015bar.com/api/exec?m=updateCpuByStoreCode&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 				print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'

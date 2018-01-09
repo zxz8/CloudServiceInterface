@@ -9,7 +9,6 @@ import uuid
 import datetime
 import urllib
 import zmq
-from django.core.cache import cache
 
 context = zmq.Context()
 socket = context.socket(zmq.PUSH)
@@ -231,7 +230,7 @@ def ShopHeartBeat(req):
 	response = http_post("https://base.1015bar.com/api/exec?m=getCpuMessage&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 	#print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	response = json.loads(response)
-	if response['returnCode'] == 10 and response['returnObject'] != {} and response['returnObject']['cmd'] != None and response['returnObject']['cmd'] != "":
+	if response['returnCode'] == 10 and response['returnObject'] != {} and response['returnObject']['cmd'] != None:
 		cmd = response['returnObject']['cmd']
 		print "shopCmd: ", cmd
 		if "upload" in cmd.lower() and ("log" in cmd.lower() or "client" in cmd.lower() or "trace" in cmd.lower()):
@@ -239,11 +238,12 @@ def ShopHeartBeat(req):
 			cmdArg = {}
 			cmdArg['user'] = "administrator";
 			cmdArg['pwd'] = "Gcwtled901";
-			cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Debug/" #test
-			#cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Release/" #operative
+			cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Debug/" #BJ_test
+			#cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Release/" #NJ_operative
 			result['shopCmdArg'] = cmdArg
 		else:
-			result['cmd'] = cmd
+			if cmd != "":
+				result['cmd'] = cmd
 		reqJson['cmd'] = ""
 		response = http_post("https://base.1015bar.com/api/exec?m=updateCpuByStoreCode&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
@@ -395,8 +395,7 @@ def shopEntry_empty(req):
 	key = vendorId + shopId #vendorId + shopId
 	if key not in g_dicCanCheck:
 		g_dicCanCheck[key] = 1
-		#result = check_stock(vendorId,shopId)
-		result = {'result':[], 'ErrMsg':''}
+		result = check_stock(vendorId,shopId)
 	else:
 		result = {'result':[], 'ErrMsg':'Checking_stock'}
 		print "vendorId: " + vendorId + " shopId: " + shopId + " in check_stock!"
@@ -738,27 +737,21 @@ def sku_get(req):
 	conn.close()
 	return result
 
-##custom ShoppingCart
-#g_dicShoppingCart = {}
+#custom ShoppingCart
+g_dicShoppingCart = {}
 
 def ShoppingCartEnd(req):
 	result = {'result':'Success'}
 	vendorId = str(req['vendorId'])
 	shopId = str(req['shopId'])
 	customId = str(req['customId'])
-	#global g_dicShoppingCart
-	#if customId in g_dicShoppingCart:
-	#	del g_dicShoppingCart[customId]
-	#use Memcached in Django
-	cache_key = vendorId + "_" + shopId + "_" + customId
-	cache.delete(cache_key)
-	logFile = open('logFile.txt','a')
-	#logFile.write("Succeed to delete " + customId + " g_dicShoppingCart")
-	#print "Succeed to delete " + customId + " g_dicShoppingCart"
-	logFile.write("Succeed to delete " + cache_key + " ShoppingCart")
-	print "Succeed to delete " + cache_key + " ShoppingCart"
-	logFile.write('\n')
-	logFile.close()
+	global g_dicShoppingCart
+	if customId in g_dicShoppingCart:
+		del g_dicShoppingCart[customId]
+		logFile = open('logFile.txt','a')
+		logFile.write("Succeed to delete " + customId + " g_dicShoppingCart")
+		logFile.write('\n')
+		logFile.close()
 	return result
 
 def ShoppingCartGet(req):
@@ -766,23 +759,13 @@ def ShoppingCartGet(req):
 	vendorId = str(req['vendorId'])
 	shopId = str(req['shopId'])
 	customId = str(req['customId'])
-	#global g_dicShoppingCart
-	#if customId in g_dicShoppingCart:
-	#	result['result'] = g_dicShoppingCart[customId]['saleList']
-	#use Memcached in Django
-	cache_key = vendorId + "_" + shopId + "_" + customId
-	cache_None = "cache_None"
-	cache_value = cache.get(cache_key,cache_None)
-	if cache_value != cache_None:
-		result['result'] = eval(cache_value)['saleList']
-	logFile = open('logFile.txt','a')
-	strSkuMsg = json.dumps(result['result']).replace('\r','').replace('\n','').replace(' ','')
-	#logFile.write("Ready to send " + customId + " g_dicShoppingCart " + strSkuMsg)
-	#print "Ready to send " + customId + " g_dicShoppingCart " + strSkuMsg
-	logFile.write("Ready to send " + cache_key + " ShoppingCart " + strSkuMsg)
-	print "Ready to send " + cache_key + " ShoppingCart " + strSkuMsg
-	logFile.write('\n')
-	logFile.close()
+	global g_dicShoppingCart
+	if customId in g_dicShoppingCart:
+		result['result'] = g_dicShoppingCart[customId]['saleList']
+		logFile = open('logFile.txt','a')
+		logFile.write("Ready to send " + customId + " g_dicShoppingCart")
+		logFile.write('\n')
+		logFile.close()
 	return result
 
 def ShoppingCartAdd(req):
@@ -795,69 +778,36 @@ def ShoppingCartAdd(req):
 	confidence = float(req['confidence'])
 	#timeStamp = str(req['timeStamp'])
 	if confidence >= 1:
-		#use Memcached in Django
-		cache_key = vendorId + "_" + shopId + "_" + customId
-		cache_None = "cache_None"
-		cache_value = cache.get(cache_key,cache_None)
-		if cache_value != cache_None:
+		global g_dicShoppingCart
+		if customId in g_dicShoppingCart:
 			nIsSkuCodeIn = 0
-			dicValue = eval(cache_value)
-			for i in dicValue['saleList']:
+			for i in g_dicShoppingCart[customId]['saleList']:
 				if skuCode == i['skuCode']:
 					i['skuCount'] += float(skuCount)
-					cache.set(cache_key,str(dicValue))
 					nIsSkuCodeIn = 1
+					print g_dicShoppingCart
 					print "skuCode in"
 					break
 			if nIsSkuCodeIn == 0:
 				saleList = {}
 				saleList['skuCode'] = skuCode
 				saleList['skuCount'] = float(skuCount)
-				dicValue['saleList'].append(saleList)
-				cache.set(cache_key,str(dicValue))
+				g_dicShoppingCart[customId]['saleList'].append(saleList)
+				print g_dicShoppingCart
 				print "skuCode not in"
 		else:
 			saleList = {}
 			saleList['skuCode'] = skuCode
 			saleList['skuCount'] = float(skuCount)
 			dic = {'saleList':[]}
+			dic['vendorId'] = vendorId
+			dic['shopId'] = shopId
 			dic['saleList'].append(saleList)
-			cache.set(cache_key,str(dic))
+			g_dicShoppingCart[customId] = dic
+			print g_dicShoppingCart
 			print "customId not in"
-		#global g_dicShoppingCart
-		#if customId in g_dicShoppingCart:
-		#	nIsSkuCodeIn = 0
-		#	for i in g_dicShoppingCart[customId]['saleList']:
-		#		if skuCode == i['skuCode']:
-		#			i['skuCount'] += float(skuCount)
-		#			nIsSkuCodeIn = 1
-		#			print g_dicShoppingCart
-		#			print "skuCode in"
-		#			break
-		#	if nIsSkuCodeIn == 0:
-		#		saleList = {}
-		#		saleList['skuCode'] = skuCode
-		#		saleList['skuCount'] = float(skuCount)
-		#		g_dicShoppingCart[customId]['saleList'].append(saleList)
-		#		print g_dicShoppingCart
-		#		print "skuCode not in"
-		#else:
-		#	saleList = {}
-		#	saleList['skuCode'] = skuCode
-		#	saleList['skuCount'] = float(skuCount)
-		#	dic = {'saleList':[]}
-		#	dic['vendorId'] = vendorId
-		#	dic['shopId'] = shopId
-		#	dic['saleList'].append(saleList)
-		#	g_dicShoppingCart[customId] = dic
-		#	print g_dicShoppingCart
-		#	print "customId not in"
 		logFile = open('logFile.txt','a')
-		#strSkuMsg = json.dumps(g_dicShoppingCart[customId]['saleList']).replace('\r','').replace('\n','').replace(' ','')
-		#logFile.write("Succeed to insert " + customId + " g_dicShoppingCart " + strSkuMsg)
-		#print "Succeed to insert " + customId + " g_dicShoppingCart " + strSkuMsg
-		logFile.write("Succeed to insert " + cache_key + " ShoppingCart " + cache.get(cache_key,cache_None))
-		print "Succeed to insert " + cache_key + " ShoppingCart " + cache.get(cache_key,cache_None)
+		logFile.write("Succeed to insert " + customId + " g_dicShoppingCart")
 		logFile.write('\n')
 		logFile.close()
 	return result
