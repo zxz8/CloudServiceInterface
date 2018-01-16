@@ -155,8 +155,13 @@ def Alarm(req):
 	reqErrJson = {}
 	reqErrJson['vendorId'] = vendorId
 	reqErrJson['storeCode'] = shopId
-	reqErrJson['type'] = '3'
-	reqErrJson['errorMsg'] = req['steelyardId'] + " running error"
+	reqErrJson['type'] = "3"
+	if 'cpuId' in req:
+		reqErrJson['shelfCode'] = "1"
+	else:
+		reqErrJson['shelfCode'] = req['steelyardId'][-7:-2]
+	reqErrJson['scales'] = req['steelyardId']
+	reqErrJson['errorMsg'] = req['ErrMsg']
 	response = http_post("https://base.1015bar.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
 	print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	result = {'result': 'Success'}
@@ -209,11 +214,15 @@ def ShopHeartBeat(req):
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	return result
 
+def AdSubAppHeartBeat(req):
+	result = {'result': "Success", "timeStamp":str(int(time.time()))}
+	return result
+
 def heartBeat(req,cmd,version):
 	vendorId = str(req['vendorId'])
 	shopId = str(req['shopId'])
 	print "vendorId: " + vendorId + " shopId: " + shopId + " heart beat!"
-	result = {'result': []}
+	result = {'result': [], "timeStamp":str(int(time.time()))}
 	reqMonitor = {}
 	reqMonitor['cpuId'] = req['cpuId']
 	response = http_post("https://base.1015bar.com/api/exec?m=boxMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
@@ -233,7 +242,7 @@ def heartBeat(req,cmd,version):
 		response = http_post("https://base.1015bar.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	for i in req['isError']:
-		print "<%s>\t<%s>\t<%s>\t<%s>" % (vendorId, shopId, i['id'], i['grade'])
+		print "isError: <%s>\t<%s>\t<%s>\t<%s>" % (vendorId, shopId, i['id'], i['grade'])
 	if 'isShopping' in req and req['isShopping'] == "0":
 		if req['isOpen'] == "1":
 			print '\033[1;31;40m' + "vendorId: " + vendorId + " shopId: " + shopId + " door status error without shopping!!!!!!" + '\033[0m'
@@ -459,15 +468,6 @@ def ShoppingChart(req):
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 		response = http_post("https://order.1015bar.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-	strSkuMsg = json.dumps(req['skuMsg']).replace('\r','').replace('\n','').replace('  ','')
-	conn = MySQLdb.connect(host="127.0.0.1",user="tangff",passwd="migrsoft*2017",db="1015shop",charset="utf8")
-	cur = conn.cursor(MySQLdb.cursors.DictCursor)
-	sql = "insert into shopping_chart(createTime,userId,skuMsg,vendorId,shopId) values('" + req['createTime'] + "','" + req['userId'] + "','" + strSkuMsg + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
-	print sql
-	cur.execute(sql)
-	cur.close()
-	conn.commit()
-	conn.close()
 	return result
 
 def skuGet(req):
@@ -483,7 +483,10 @@ def skuGet(req):
 		for i in response['returnObject']['scalesDetailList']:
 			if i['totalWeight'] > 0:
 				dic = {} 
-				dic['steelyardId'] = i['tiersAndScales']
+				#dic['steelyardId'] = i['tiersAndScales']
+				dic['steelyardId'] = "%02d%02d" % (int(i['tiersCode']), int(i['scalesCode']))
+				dic['tiersCode'] = i['tiersCode']
+				dic['scalesCode'] = i['scalesCode']
 				dic['skuCode'] = i['skuCode']
 				dic['unitWeight'] = str(i['totalWeight'])
 				#dic['currWeight'] = ""
@@ -731,6 +734,9 @@ def index(request):
 
 		elif (req['action'] == 'ShopHeartBeat'):
 			result = ShopHeartBeat(req)
+
+		elif (req['action'] == 'AdSubAppHeartBeat'):
+			result = AdSubAppHeartBeat(req)
 
 		elif (req['action'] == 'heartBeat'):
 			result = heartBeat(req,cmd,version)

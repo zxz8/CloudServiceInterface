@@ -21,7 +21,7 @@ fi
 echo Ready to run server...
 sleep 1
 
- > logFile.txt
+# > logFile.txt
  > uwsgi.log
 uwsgi --ini $NAME.ini &
 
