@@ -16,6 +16,8 @@ socket = context.socket(zmq.PUSH)
 socket.connect('tcp://39.106.27.51:12300') #test
 #socket.connect('tcp://47.94.92.14:12300') #operative
 
+logFile = open('logFile.txt','a')
+
 def http_get(url,reqJson):
 	reqJson = json.dumps(reqJson)
 	url += reqJson
@@ -155,13 +157,13 @@ def Alarm(req):
 	reqErrJson = {}
 	reqErrJson['vendorId'] = vendorId
 	reqErrJson['storeCode'] = shopId
-	reqErrJson['type'] = "3"
+	reqErrJson['type'] = str(int(req['type']) + 2)
 	if 'cpuId' in req:
 		reqErrJson['shelfCode'] = "1"
 	else:
-		reqErrJson['shelfCode'] = req['steelyardId'][-7:-2]
+		reqErrJson['shelfCode'] = req['steelyardId'][-6:-2]
 	reqErrJson['scales'] = req['steelyardId']
-	reqErrJson['errorMsg'] = req['ErrMsg']
+	reqErrJson['errorMsg'] = str(req['ErrMsg'])
 	response = http_post("https://base.1015bar.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
 	print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	result = {'result': 'Success'}
@@ -202,8 +204,8 @@ def ShopHeartBeat(req):
 		if "upload" in cmd.lower() and ("log" in cmd.lower() or "client" in cmd.lower() or "trace" in cmd.lower()):
 			result['shopCmd'] = cmd
 			cmdArg = {}
-			cmdArg['user'] = "administrator";
-			cmdArg['pwd'] = "Gcwtled901";
+			cmdArg['user'] = "administrator"
+			cmdArg['pwd'] = "Gcwtled901"
 			cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Debug/" #test
 			#cmdArg['path'] = "ftp://47.95.242.148:21/pos_log/Release/" #operative
 			result['shopCmdArg'] = cmdArg
@@ -214,8 +216,40 @@ def ShopHeartBeat(req):
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	return result
 
-def AdSubAppHeartBeat(req):
+def AdSubAppHeartBeat(req,adCmd):
+	vendorId = str(req['vendorId'])
+	shopId = str(req['shopId'])
+	print "vendorId: " + vendorId + " shopId: " + shopId + " AdSubApp heart beat!"
 	result = {'result': "Success", "timeStamp":str(int(time.time()))}
+	reqJson = {}
+	reqJson['cpuId'] = req['cpuId']
+	if 'lastCmd' in req:
+		print "version: %s  lastCmd: %s" % (req['version'], req['lastCmd'])
+		if req['lastCmd'].find('_Success') > 0:
+			reqJson['adCmd'] = ""
+			adCmd = ""
+	else:
+		print "version: %s" % (req['version'])
+	if 'adCmd' in reqJson:
+		response = http_post("https://base.1015bar.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
+	if adCmd == "updateConfig":
+		result['cmd'] = adCmd
+		adCmdArg = {}
+		adCmdArg['user'] = "administrator"
+		adCmdArg['pwd'] = "Gcwtled901"
+		adCmdArg['path'] = "ftp://47.95.242.148:21/ad_pub/" + req['cpuId'] + "/Config.json"
+		result['cmdArg'] = adCmdArg
+	elif adCmd == "update":
+		result['cmd'] = adCmd
+		adCmdArg = {}
+		adCmdArg['user'] = "administrator"
+		adCmdArg['pwd'] = "Gcwtled901"
+		adCmdArg['path'] = "ftp://47.95.242.148:21/ad_pub/" + req['cpuId'] + "/AdSubApp.apk"
+		result['cmdArg'] = adCmdArg
+	else:
+		if adCmd != None and adCmd != "":
+			result['cmd'] = adCmd
 	return result
 
 def heartBeat(req,cmd,version):
@@ -223,10 +257,6 @@ def heartBeat(req,cmd,version):
 	shopId = str(req['shopId'])
 	print "vendorId: " + vendorId + " shopId: " + shopId + " heart beat!"
 	result = {'result': [], "timeStamp":str(int(time.time()))}
-	reqMonitor = {}
-	reqMonitor['cpuId'] = req['cpuId']
-	response = http_post("https://base.1015bar.com/api/exec?m=boxMonitor&token=H8DH9Snx9877SDER5667&reqJson=",reqMonitor)
-	print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	reqJson = {}
 	reqJson['cpuId'] = req['cpuId']
 	if 'lastCmd' in req:
@@ -241,50 +271,38 @@ def heartBeat(req,cmd,version):
 	if 'cmd' in reqJson or 'version' in reqJson:
 		response = http_post("https://base.1015bar.com/api/exec?m=updateCpuByCpuId&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-	for i in req['isError']:
-		print "isError: <%s>\t<%s>\t<%s>\t<%s>" % (vendorId, shopId, i['id'], i['grade'])
-	if 'isShopping' in req and req['isShopping'] == "0":
-		if req['isOpen'] == "1":
-			print '\033[1;31;40m' + "vendorId: " + vendorId + " shopId: " + shopId + " door status error without shopping!!!!!!" + '\033[0m'
-			reqErrJson = {}
-			reqErrJson['vendorId'] = vendorId
-			reqErrJson['storeCode'] = shopId
-			reqErrJson['type'] = '2'
-			reqErrJson['errorMsg'] = "door status error without shopping"
-			response = http_post("https://base.1015bar.com/api/exec?m=errorSendMsg&token=H8DH9Snx9877SDER5667&reqJson=",reqErrJson)
-			print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-		reqJson = {}
-		reqJson['cpuId'] = req['cpuId']
-		response = http_post("https://base.1015bar.com/api/exec?m=getDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-		response = json.loads(response)
-		if response['returnCode'] == 10 and response['returnObject'] != {}:
-			dic = {}
-			dic['userId'] = response['returnObject']['memNo']
-			dic['type'] = response['returnObject']['memberType']
-			dic['status'] = response['returnObject']['status']
-			#dic['doorStatus'] = response['returnObject']['doorStatus']
-			result['result'].append(dic)
-		else:
-			print "Failed to getDoorStatus from erp!"
+	del req['vendorId']
+	del req['shopId']
+	response = http_post("https://base.1015bar.com/api/exec?m=getDoorStatus&token=H8DH9Snx9877SDER5667&reqJson=",req)
+	print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
+	response = json.loads(response)
+	if response['returnCode'] == 10 and response['returnObject'] != None and response['returnObject'] != {}:
+		dic = {}
+		dic['userId'] = response['returnObject']['memNo']
+		dic['type'] = response['returnObject']['memberType']
+		dic['status'] = response['returnObject']['status']
+		#dic['doorStatus'] = response['returnObject']['doorStatus']
+		result['result'].append(dic)
+	else:
+		print "Failed to getDoorStatus from erp!"
 	if cmd == "update":
 		result['cmd'] = cmd
 		cmdArg = {}
-		cmdArg['user'] = "administrator";
-		cmdArg['pwd'] = "Gcwtled901";
+		cmdArg['user'] = "administrator"
+		cmdArg['pwd'] = "Gcwtled901"
 		cmdArg['path'] = "ftp://47.95.242.148:21/box_firmware/Debug/ScaleWeightMsg_user_scan_qrcode" #test
 		#cmdArg['path'] = "ftp://47.95.242.148:21/box_firmware/Release/ScaleWeightMsg_user_scan_qrcode" #operative
 		result['cmdArg'] = cmdArg
 	elif cmd == "uploadLog":
 		result['cmd'] = cmd
 		cmdArg = {}
-		cmdArg['user'] = "administrator";
-		cmdArg['pwd'] = "Gcwtled901";
+		cmdArg['user'] = "administrator"
+		cmdArg['pwd'] = "Gcwtled901"
 		cmdArg['path'] = "ftp://47.95.242.148:21/box_log/Debug/" + vendorId + "_" + shopId + ".log" + datetime.datetime.now().strftime('%Y%m%d%H%M%S') #test
 		#cmdArg['path'] = "ftp://47.95.242.148:21/box_log/Release/" + vendorId + "_" + shopId + ".log" + datetime.datetime.now().strftime('%Y%m%d%H%M%S') #operative
 		result['cmdArg'] = cmdArg
 	else:
-		if cmd != "" and cmd != None:
+		if cmd != None and cmd != "":
 			result['cmd'] = cmd
 	return result
 
@@ -300,10 +318,8 @@ def shopEntry_in(req):
 	cmd = "INOUT$" + req['customId']+ "$" + str(1) + "$" + req['timeStamp'] + "$" + vendorId + "$" + shopId
 	print cmd
 	socket.send(cmd.encode('ascii'))
-	logFile = open('logFile.txt','a')
-	logFile.write(cmd)
-	logFile.write('\n')
-	logFile.close()
+	logFile.write(cmd + '\n')
+	logFile.flush()
 	#reset CanCheck flag
 	global g_dicCanCheck
 	key = vendorId + shopId #vendorId + shopId
@@ -334,10 +350,8 @@ def shopEntryHistory_insert(req):
 	cmd = "INOUT$" + req['customId']+ "$" + str(0) + "$" + req['timeStamp'] + "$" + req['vendorId'] + "$" + req['shopId']
 	print cmd
 	socket.send(cmd.encode('ascii'))
-	logFile = open('logFile.txt','a')
-	logFile.write(cmd)
-	logFile.write('\n')
-	logFile.close()
+	logFile.write(cmd + '\n')
+	logFile.flush()
 	conn = MySQLdb.connect(host="127.0.0.1",user="tangff",passwd="migrsoft*2017",db="1015shop",charset="utf8")
 	cur = conn.cursor(MySQLdb.cursors.DictCursor)
 	sql = "insert into shopentryhistory values('" + req['entryTime'] + "','" + req['exitTime'] + "','" + req['customId'] + "','" + req['vendorId'] + "','" + req['shopId'] + "');"
@@ -453,9 +467,28 @@ def ShoppingChart(req):
 	reqJson['vendorId'] = int(req['vendorId'])
 	reqJson['orderStore'] = req['shopId']
 	reqJson['memberCode'] = req['userId']
+	try:
+		#req['createTime'] = req['createTime'].replace("2018/02/29", "2018/03/01")
+		reqJson['timeStamp'] = str(int(time.mktime(time.strptime(req['createTime'], "%Y/%m/%d %H:%M:%S"))))
+	except Exception, e:
+		print "ShoppingChart Exception: ", e.message
+		year = int(req['createTime'][0:4])
+		month = int(req['createTime'][5:7])
+		day = int(req['createTime'][8:10])
+		oldTime = "%04d/%02d/%02d" % (year, month, day)
+		print "oldTime ", oldTime
+		if month != 12:
+			month += 1
+		else:
+			year += 1
+			month = 1
+		newTime = "%04d/%02d/01" % (year, month)
+		print "newTime ", newTime
+		req['createTime'] = req['createTime'].replace(oldTime, newTime)
+		reqJson['timeStamp'] = str(int(time.mktime(time.strptime(req['createTime'], "%Y/%m/%d %H:%M:%S"))))
 	for i in req['skuMsg']:
 		saleDetailList = {}
-		saleDetailList['skuCode'] = i['skuCode']
+		saleDetailList['skuCode'] = i['skuCode'].replace(" ", "")
 		saleDetailList['skuNum'] = int(i['skuCount'])
 		saleDetailList['steelyardId'] = i['steelyardId']
 		reqJson['saleDetailList'].append(saleDetailList)
@@ -466,8 +499,8 @@ def ShoppingChart(req):
 		reqJson0['memNo'] = req['userId']
 		response = http_post("https://mem.1015bar.com/api/qxMem?m=updateMemStatus&token=2CB1FB6F1D2F032000A1D807E17EC4DD&timeStamp=1503387111716&reqJson=",reqJson0)
 		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
-		response = http_post("https://order.1015bar.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
-		print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
+	response = http_post("https://order.1015bar.com/api/exect?m=receiveOrderWithOutPay&token=H8DH9Snx9877SDER5667&reqJson=",reqJson)
+	print '\033[1;31;40m' + "HTTP response: " + response + '\033[0m'
 	return result
 
 def skuGet(req):
@@ -503,11 +536,9 @@ def ShoppingCartEnd(req):
 	customId = str(req['customId'])
 	cache_key = vendorId + "_" + shopId + "_" + customId
 	cache.delete(cache_key)
-	logFile = open('logFile.txt','a')
-	logFile.write("Succeed to delete " + cache_key + " ShoppingCart")
+	logFile.write("Succeed to delete " + cache_key + " ShoppingCart" + '\n')
 	print "Succeed to delete " + cache_key + " ShoppingCart"
-	logFile.write('\n')
-	logFile.close()
+	logFile.flush()
 	return result
 
 def ShoppingCartGet(req):
@@ -520,12 +551,10 @@ def ShoppingCartGet(req):
 	cache_value = cache.get(cache_key,cache_None)
 	if cache_value != cache_None:
 		result['result'] = eval(cache_value)['saleList']
-	logFile = open('logFile.txt','a')
 	strSkuMsg = json.dumps(result['result']).replace('\r','').replace('\n','').replace(' ','')
-	logFile.write("Ready to send " + cache_key + " ShoppingCart " + strSkuMsg)
+	logFile.write("Ready to send " + cache_key + " ShoppingCart " + strSkuMsg + '\n')
 	print "Ready to send " + cache_key + " ShoppingCart " + strSkuMsg
-	logFile.write('\n')
-	logFile.close()
+	logFile.flush()
 	return result
 
 def ShoppingCartAdd(req):
@@ -567,11 +596,9 @@ def ShoppingCartAdd(req):
 			dic['saleList'].append(saleList)
 			cache.set(cache_key,str(dic))
 			print "customId not in"
-		logFile = open('logFile.txt','a')
-		logFile.write("Succeed to insert " + cache_key + " ShoppingCart " + cache.get(cache_key,cache_None))
+		logFile.write("Succeed to insert " + cache_key + " ShoppingCart " + cache.get(cache_key,cache_None) + '\n')
 		print "Succeed to insert " + cache_key + " ShoppingCart " + cache.get(cache_key,cache_None)
-		logFile.write('\n')
-		logFile.close()
+		logFile.flush()
 	return result
 
 def CheckWeight(req):
@@ -595,8 +622,6 @@ def CheckWeight(req):
 		print '\033[1;31;40m' + "HTTP response: " + response['returnMsg'].encode("utf-8") + '\033[0m'
 		if response['returnCode'] == 10:
 			for i in response['returnObject']['scalesDetailList']:
-				print "steelyardId: " + steelyardId
-				print i['tiersAndScales']
 				if steelyardId == i['tiersAndScales']:
 					x = i['posX']
 					y = i['posY']
@@ -606,10 +631,8 @@ def CheckWeight(req):
 					print cmd
 					socket.send(cmd.encode('ascii'))
 					result = {'result':'Success'}
-					logFile = open('logFile.txt','a')
-					logFile.write(cmd)
-					logFile.write('\n')
-					logFile.close()
+					logFile.write(cmd + '\n')
+					logFile.flush()
 					break
 		else:
 			result = {'result':'Failure', 'ErrMsg':'Failed_query_erp'}
@@ -697,15 +720,11 @@ def index(request):
 		req = json.loads(request.body,encoding="utf-8")
 		if request.body.find('CheckWeight') > 0:
 			if int(req['skuCount']) > 0:
-				logFile = open('logFile.txt','a')
 				logFile.write(request.body)
-				logFile.close()
+				logFile.flush()
 		if request.body.find('ShoppingCartAdd') > 0:
-			logFile = open('logFile.txt','a')
-			logFile.write('\n')
-			logFile.write(request.body)
-			logFile.write('\n')
-			logFile.close()
+			logFile.write('\n' + request.body + '\n')
+			logFile.flush()
 		if 'cpuId' in req:
 			#cpuId >>> vendorId shopId
 			reqJson = {}
@@ -718,9 +737,12 @@ def index(request):
                         	req['shopId'] = response['returnObject']['storeCode']
 				print req['cpuId'], " >>> ", req['vendorId'], " ", req['shopId']
 				cmd = response['returnObject']['cmd']
+				adCmd = response['returnObject']['adCmd']
 				version = response['returnObject']['version']
 				if cmd != "":
 					print "cmd: ", cmd
+				if adCmd != "":
+					print "adCmd: ", adCmd
 			else:
 				result = {'result':'Failure', 'ErrMsg':'Unknown_cpuId'}
 				print "Failed to translate cpuId! ", req['cpuId']
@@ -736,7 +758,7 @@ def index(request):
 			result = ShopHeartBeat(req)
 
 		elif (req['action'] == 'AdSubAppHeartBeat'):
-			result = AdSubAppHeartBeat(req)
+			result = AdSubAppHeartBeat(req,adCmd)
 
 		elif (req['action'] == 'heartBeat'):
 			result = heartBeat(req,cmd,version)
