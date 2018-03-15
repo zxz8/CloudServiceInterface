@@ -100,7 +100,7 @@ def sendOrderMessage(customOrderId, customId,amount,count,description,status):
 
 @csrf_exempt
 def test(request):
-	res = "orderMessage test"
+	res = "orderMessage test."
 	#res = sendOrderMessage('123','150772918489','0.01','desc','0')
 	return HttpResponse(res)
 

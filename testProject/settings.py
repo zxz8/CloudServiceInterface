@@ -83,9 +83,20 @@ DATABASES = {
 	'PASSWORD':'migrsoft*2017',
 	'HOST':'127.0.0.1',
 	'PORT':'3306',
+	#'CONN_MAX_AGE':600,
     }
 }
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+        'TIMEOUT': 86400, #time to live in seconds
+        'LOCATION': [
+            #'127.0.0.1:11212', #None
+            'cached.1015bar.com:11212',
+        ]
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
