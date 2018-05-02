@@ -52,4 +52,3 @@ Django是一个开源的Web应用框架，由Python语言编写。
 	12.1更新对应商家、门店、称的状态（1015shop数据库steelyard表status字段）
 13.称放错更新接口（steelyard_update_isError）：
 	13.1更新对应商家、门店、称的放错状态（1015shop数据库steelyard表isError字段）
-
