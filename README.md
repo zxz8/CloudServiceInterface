@@ -1,54 +1,55 @@
-Django��һ����Դ��WebӦ�ÿ�ܣ���Python���Ա�д��
-��ģ����������Django����µ�һ����Ŀ����Ŀ�����ļ�λ��/home/shop/testProjectĿ¼��
-������Ϊ����box�����˱������ṩ��Ҫ���ƶ˷�����ͨ�㷨��erp��̨��pos�ˡ�Ƕ��ʽ��ģ�飬
-ͨ��HTTP��ZeroMQ��Ϣ���д������ݣ�ͨ��MySQL���ݿ�洢���ݡ���ϸ�������£�
-����box��
-1.�澯�ӿڣ�Alarm����
-	1.1���ղ�����box�ĸ澯��Ϣ�����������ϱ������ȣ���֪ͨerp��̨���ʹ���Ϣ����ع���Ա
-2.�����ӿڣ�heartBeat����
-	2.1���ղ�����boxÿ3sһ�ε���������֪ͨerp��̨����״̬
-	2.2���box�汾��״̬�������쳣������δ���ﵫ�ſ�����֪ͨerp��̨���ʹ���Ϣ����ع���Ա
-	2.3���box�Ƿ��зŴ����ȼ����������ݿ���Ӧ�ֶΣ�1015shop���ݿ�steelyard��isError�ֶΣ�
-	2.4���˹���ʱ����erp��̨��ȡ���Ż�Ա��Ϣ����֪ͨbox
-	2.5��box�������update/uploadLog�ȣ���������boxִ������Ļظ�
-3.����Ա�ϻ���¼�ӿڣ�addskuStart/addskuEnd����
-	3.1��¼����ԱΪ��Ӧ�̼����ŵ���ϻ�ǰ��������ơ���Ʒ��������
-4.���ﳵ�ӿڣ�ShoppingChart����
-	4.1���ղ�����box�Ĺ��ﳵ��Ϣ�����浽���ݿ⣨1015shop���ݿ�shopping_chart����
-	4.2���Ļ�Ա״̬�󣬸��ݹ��ﳵ������erp��̨�µ�
-	4.3����ϻ������ݹ��ﳵ���ݸ�����Ӧ���ϵ���Ʒ��棨1015shop���ݿ�steelyard��skuNum�ֶΣ�
-5.��Ʒ��Ϣͬ���ӿڣ�skuGet)��
-	5.1��Ӧ�̼ҡ��ŵ�ͬ�����ơ���Ʒ�����أ���Ϣ��box
-	5.2��ر���1015shop���ݿ��µ�steelyard����-��Ʒ������sku����Ʒ-���أ���
-���˱����꣺
-1.��Ʒ��Ϣͬ���ӿڣ�steelyard_get)��
-	1.1��Ӧ�̼ҡ��ŵ�ͬ�����ơ���Ʒ�����أ���Ϣ������ģ��
-	1.2��ر���1015shop���ݿ��µ�steelyard����-��Ʒ������sku����Ʒ-���أ���
-2.�澯�ӿڣ�Alarm����
-	2.1���ղ���������ģ��ĸ澯��Ϣ�����������ϱ������ȣ���֪ͨerp��̨���ʹ���Ϣ����ع���Ա
-3.�����ӿڣ�ShopHeartBeat����
-	3.1���ղ�����pos��ÿ3sһ�ε���������֪ͨerp��̨����״̬
-	3.2��erp��̨��ȡ�����Ż�Ա��Ϣ����֪ͨpos��
-4.����֪ͨ�ӿڣ�shopEntry_in����
-	4.1ͨ��ZeroMQ��Ϣ���У�֪ͨ�㷨���˽���
-	4.2������Ӧ�̼ҡ��ŵ���̵�
-5.�ŵ����˽ӿڣ�shopEntry_empty����
-	5.1��Ӧ�̼ҡ��ŵ꿪ʼ�̵�
-6.������ʷ��¼�ӿڣ�shopEntryHistory_insert����
-	6.1ͨ��ZeroMQ��Ϣ���У�֪ͨ�㷨���˳���
-	6.2�����û�������ʷ��¼��1015shop���ݿ�shopentryhistory����
-7.�ƶ˹��ﳵ�����ӿڣ�ShoppingCartEnd����
-	7.1������Ӧ�̼ҡ��ŵꡢ�û����ƶ˹��ﳵ���Խ��㷨��
-8.�ƶ˹��ﳵ��ȡ�ӿڣ�ShoppingCartGet����
-	8.1��ȡ��Ӧ�̼ҡ��ŵꡢ�û����ƶ˹��ﳵ���Խ��㷨��
-9.�ƶ˹��ﳵ�޸Ľӿڣ�ShoppingCartAdd����
-	9.1�����㷨�ظ��Ĺ��ﳵ���޸Ķ�Ӧ�̼ҡ��ŵꡢ�û����ƶ˹��ﳵ
-10.���������ӿڣ�CheckWeight����
-	10.1�������û��Ĺ�����Ϊ���̼ҡ��ŵꡢ�ơ���Ʒ���������÷ţ�����ͨ��ZeroMQ��Ϣ���У�֪ͨ�㷨
-	10.2����ϻ���������Ӧ���ϵ���Ʒ��棨1015shop���ݿ�steelyard��	skuNum�ֶΣ�
-11.�������½ӿڣ�steelyard_update����
-	11.1���¶�Ӧ�̼ҡ��ŵꡢ�Ƶĵ�ǰ������ƫ��������1015shop���ݿ�steelyard��currWeight��offsetWeight�ֶΣ�
-12.��״̬���½ӿڣ�steelyard_update_status����
-	12.1���¶�Ӧ�̼ҡ��ŵꡢ�Ƶ�״̬��1015shop���ݿ�steelyard��status�ֶΣ�
-13.�ƷŴ����½ӿڣ�steelyard_update_isError����
-	13.1���¶�Ӧ�̼ҡ��ŵꡢ�ƵķŴ�״̬��1015shop���ݿ�steelyard��isError�ֶΣ�
+# CloudServiceInterface
+Django是一个开源的Web应用框架，由Python语言编写。
+本模块是运行于Django框架下的一个项目，项目主体文件位于/home/shop/testProject目录。
+功能是为无人box和无人便利店提供必要的云端服务，联通算法、erp后台、pos端、嵌入式等模块，
+通过HTTP和ZeroMQ消息队列传递数据，通过MySQL数据库存储数据。详细功能如下：
+无人box：
+1.告警接口（Alarm）：
+	1.1接收并解析box的告警信息（例：称乱上报重量等），通知erp后台发送此消息给相关管理员
+2.心跳接口（heartBeat）：
+	2.1接收并解析box每3s一次的心跳包，通知erp后台心跳状态
+	2.2监控box版本、状态，发现异常（例：未购物但门开启）通知erp后台发送此消息给相关管理员
+	2.3监控box是否有放错及等级，更新数据库相应字段（1015shop数据库steelyard表isError字段）
+	2.4无人购物时，向erp后台获取开门会员信息，并通知box
+	2.5向box发送命令（update/uploadLog等），并接收box执行命令的回复
+3.管理员上货记录接口（addskuStart/addskuEnd）：
+	3.1记录管理员为相应商家下门店的上货前后情况（称、商品、数量）
+4.购物车接口（ShoppingChart）：
+	4.1接收并解析box的购物车信息，保存到数据库（1015shop数据库shopping_chart表）
+	4.2更改会员状态后，根据购物车内容向erp后台下单
+	4.3配合上货，根据购物车内容更新相应称上的商品库存（1015shop数据库steelyard表skuNum字段）
+5.商品信息同步接口（skuGet)：
+	5.1对应商家、门店同步（称、商品、单重）信息到box
+	5.2相关表格：1015shop数据库下的steelyard（称-商品）表、sku（商品-单重）表
+无人便利店：
+1.商品信息同步接口（steelyard_get)：
+	1.1对应商家、门店同步（称、商品、单重）信息到称重模块
+	1.2相关表格：1015shop数据库下的steelyard（称-商品）表、sku（商品-单重）表
+2.告警接口（Alarm）：
+	2.1接收并解析称重模块的告警信息（例：称乱上报重量等），通知erp后台发送此消息给相关管理员
+3.心跳接口（ShopHeartBeat）：
+	3.1接收并解析pos端每3s一次的心跳包，通知erp后台心跳状态
+	3.2向erp后台获取进出门会员信息，并通知pos端
+4.进店通知接口（shopEntry_in）：
+	4.1通过ZeroMQ消息队列，通知算法有人进店
+	4.2结束对应商家、门店的盘点
+5.门店无人接口（shopEntry_empty）：
+	5.1对应商家、门店开始盘点
+6.进店历史记录接口（shopEntryHistory_insert）；
+	6.1通过ZeroMQ消息队列，通知算法有人出店
+	6.2保存用户进店历史记录（1015shop数据库shopentryhistory表）
+7.云端购物车清理接口（ShoppingCartEnd）：
+	7.1清理对应商家、门店、用户的云端购物车（对接算法）
+8.云端购物车获取接口（ShoppingCartGet）：
+	8.1获取对应商家、门店、用户的云端购物车（对接算法）
+9.云端购物车修改接口（ShoppingCartAdd）：
+	9.1解析算法回复的购物车，修改对应商家、门店、用户的云端购物车
+10.重量解析接口（CheckWeight）：
+	10.1解析成用户的购物行为（商家、门店、称、商品、个数、拿放），并通过ZeroMQ消息队列，通知算法
+	10.2配合上货，更新相应称上的商品库存（1015shop数据库steelyard表	skuNum字段）
+11.重量更新接口（steelyard_update）：
+	11.1更新对应商家、门店、称的当前重量、偏移重量（1015shop数据库steelyard表currWeight、offsetWeight字段）
+12.称状态更新接口（steelyard_update_status）：
+	12.1更新对应商家、门店、称的状态（1015shop数据库steelyard表status字段）
+13.称放错更新接口（steelyard_update_isError）：
+	13.1更新对应商家、门店、称的放错状态（1015shop数据库steelyard表isError字段）
